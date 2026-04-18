@@ -76,6 +76,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);overflow:hidde
 .chat-item:hover{background:var(--s2)}
 .chat-item.on{background:rgba(232,68,90,.1)}
 .ci-av{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;color:#fff;flex-shrink:0;position:relative}
+.ci-av.story-ring::before{content:'';position:absolute;inset:-3px;border-radius:50%;background:linear-gradient(135deg,var(--a1),var(--a2));z-index:-1}
 .ci-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;border-radius:50%;border:2px solid var(--s1)}
 .ci-dot.online{background:var(--a3)}.ci-dot.offline{background:#3d3d5c}
 .ci-info{flex:1;min-width:0}
@@ -116,9 +117,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);overflow:hidde
 .msg-sender-name{font-size:.68rem;font-weight:600;padding:0 4px;margin-bottom:2px}
 
 .wa-bubble{padding:8px 12px;border-radius:18px;font-size:.88rem;line-height:1.55;word-break:break-word;position:relative;max-width:100%}
-.msg-wrap.them .wa-bubble{background:var(--s2);color:var(--text);border-bottom-left-radius:3px}
-.msg-wrap.me .wa-bubble{background:var(--a1);color:#fff;border-bottom-right-radius:3px}
-.msg-footer{display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:2px;padding:0 2px}
+.msg-wrap.them .wa-bubble{background:rgba(255,255,255,.06);color:var(--text);border-bottom-left-radius:4px;border-bottom-right-radius:18px;border-top-right-radius:18px;border-top-left-radius:18px}
+.msg-wrap.me .wa-bubble{background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;border-bottom-right-radius:4px;border-bottom-left-radius:18px;border-top-right-radius:18px;border-top-left-radius:18px;box-shadow:0 14px 35px rgba(232,68,90,.08)}
+.msg-footer{display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:4px;padding:0 2px;opacity:.85}
 .msg-ts{font-size:.62rem;color:var(--muted)}
 .msg-tick{font-size:.65rem;color:var(--a3)}
 
@@ -806,7 +807,7 @@ export default function Jam(){
             {friends.map(f=>(
               <div key={f.id} className={"chat-item"+(activeFriend?.id===f.id?" on":"")}
                 onClick={()=>{setActiveFriend(f);setFriends(p=>p.map(x=>x.id===f.id?{...x,unread:0}:x));}}>
-                <div className="ci-av" style={{background:f.color}}>
+                <div className={"ci-av"+(f.unread?" story-ring":"")} style={{background:f.color}}>
                   {initials(f.name)}
                   <span className={"ci-dot "+(f.status==="online"?"online":"offline")}/>
                 </div>
