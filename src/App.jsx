@@ -488,20 +488,20 @@ function useLiveMsgs(roomId){
 ════════════════════════════════ */
 export default function Jam(){
   /* auth */
-  const [screen,setScreen]   = useState("auth");
+  const [screen,setScreen]   = useState("app");
   const [authTab,setAuthTab] = useState("login");
   const [nameVal,setNameVal] = useState("");
   const [emailVal,setEmailVal] = useState("");
   const [pwVal,setPwVal]     = useState("");
   const [authErr,setAuthErr] = useState("");
-  const [user,setUser]       = useState(null);
+  const [user,setUser]       = useState({name:"You",email:"you@jam.app",color:"#e8445a"});
 
   /* nav */
   const [nav,setNav] = useState("chat");
 
   /* chat */
   const [friends,setFriends] = useState(FRIENDS_DATA);
-  const [activeFriend,setActiveFriend] = useState(null);
+  const [activeFriend,setActiveFriend] = useState(FRIENDS_DATA[0]);
   const [messages,setMessages] = useState(INIT_MSGS);
   const [chatInput,setChatInput] = useState("");
   const [showEmoji,setShowEmoji] = useState(false);
@@ -609,31 +609,26 @@ export default function Jam(){
     const fid = activeFriend.id;
     const newMsg = {id:"m"+Date.now(),from:"me",text:txt,ts:Date.now(),replyTo:replyTo?{text:replyTo.text,from:replyTo.from}:null};
     setMessages(p=>({...p,[fid]:[...(p[fid]||[]),newMsg]}));
-    // clear unread
     setFriends(f=>f.map(x=>x.id===fid?{...x,unread:0,last:txt}:x));
     setTyping(true); setAiLoading(true);
-    try{
-      const hist = (messages[fid]||[]).slice(-6).map(m=>({role:m.from==="me"?"user":"assistant",content:m.text}));
-      hist.push({role:"user",content:txt});
-      const res = await fetch("https://api.anthropic.com/v1/messages",{
-        method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          model:"claude-sonnet-4-20250514",max_tokens:180,
-          system:"You are "+activeFriend.name+", a close friend on Jam app. Be casual, warm, use emojis naturally. Keep replies 1-2 sentences. Current status: "+activeFriend.last,
-          messages:hist
-        })
-      });
-      const d = await res.json();
-      const reply = d.content?.find(b=>b.type==="text")?.text || "lol 😂";
+
+    const replies = [
+      "Sounds great! 🎵",
+      "Haha, I’m in!",
+      "That sounds awesome!",
+      "Can’t wait — let’s go!",
+      "That’s fire 🔥",
+      "I’ll join you in a bit."
+    ];
+    const replyText = replies[Math.floor(Math.random()*replies.length)];
+
+    setTimeout(()=>{
       setTyping(false);
-      const replyMsg = {id:"r"+Date.now(),from:"them",text:reply,ts:Date.now()};
+      const replyMsg = {id:"r"+Date.now(),from:"them",text:replyText,ts:Date.now()};
       setMessages(p=>({...p,[fid]:[...(p[fid]||[]),replyMsg]}));
-      setFriends(f=>f.map(x=>x.id===fid?{...x,last:reply}:x));
-    }catch{
-      setTyping(false);
-      setMessages(p=>({...p,[fid]:[...(p[fid]||[]),{id:"r"+Date.now(),from:"them",text:"hey brb! 👋",ts:Date.now()}]}));
-    }
-    setAiLoading(false);
+      setFriends(f=>f.map(x=>x.id===fid?{...x,last:replyText}:x));
+      setAiLoading(false);
+    }, 900);
   };
 
   /* ── NEW CONTACT ── */
