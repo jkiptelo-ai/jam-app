@@ -1,4 +1,21 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { initializeApp } from "firebase/app";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, updateProfile, signOut } from "firebase/auth";
+import { getDatabase, ref, onValue, push } from "firebase/database";
+
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: (import.meta.env.VITE_FIREBASE_URL || "https://jam-realtime-chat-default-rtdb.firebaseio.com").replace(/\/$/, ""),
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
 
 /* ═══════════════════════════════════════════
    STYLES
@@ -76,7 +93,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);overflow:hidde
 .chat-item:hover{background:var(--s2)}
 .chat-item.on{background:rgba(232,68,90,.1)}
 .ci-av{width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;color:#fff;flex-shrink:0;position:relative}
-.ci-av.story-ring::before{content:'';position:absolute;inset:-3px;border-radius:50%;background:linear-gradient(135deg,var(--a1),var(--a2));z-index:-1}
 .ci-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;border-radius:50%;border:2px solid var(--s1)}
 .ci-dot.online{background:var(--a3)}.ci-dot.offline{background:#3d3d5c}
 .ci-info{flex:1;min-width:0}
@@ -117,9 +133,9 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);overflow:hidde
 .msg-sender-name{font-size:.68rem;font-weight:600;padding:0 4px;margin-bottom:2px}
 
 .wa-bubble{padding:8px 12px;border-radius:18px;font-size:.88rem;line-height:1.55;word-break:break-word;position:relative;max-width:100%}
-.msg-wrap.them .wa-bubble{background:rgba(255,255,255,.06);color:var(--text);border-bottom-left-radius:4px;border-bottom-right-radius:18px;border-top-right-radius:18px;border-top-left-radius:18px}
-.msg-wrap.me .wa-bubble{background:linear-gradient(135deg,var(--a1),var(--a2));color:#fff;border-bottom-right-radius:4px;border-bottom-left-radius:18px;border-top-right-radius:18px;border-top-left-radius:18px;box-shadow:0 14px 35px rgba(232,68,90,.08)}
-.msg-footer{display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:4px;padding:0 2px;opacity:.85}
+.msg-wrap.them .wa-bubble{background:var(--s2);color:var(--text);border-bottom-left-radius:3px}
+.msg-wrap.me .wa-bubble{background:var(--a1);color:#fff;border-bottom-right-radius:3px}
+.msg-footer{display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:2px;padding:0 2px}
 .msg-ts{font-size:.62rem;color:var(--muted)}
 .msg-tick{font-size:.65rem;color:var(--a3)}
 
@@ -360,14 +376,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--fb);overflow:hidde
 `;
 
 /* ════════════════════════════════
-   FIREBASE REST
-════════════════════════════════ */
-const FB = "https://jam-realtime-chat-default-rtdb.firebaseio.com";
-const fbRead  = async p => { try{ const r=await fetch(FB+p+".json"); return await r.json(); }catch{return null;} };
-const fbPush  = async (p,d) => { try{ const r=await fetch(FB+p+".json",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({...d,ts:Date.now()})}); return await r.json(); }catch{return null;} };
-const fbWrite = async (p,d) => { try{ await fetch(FB+p+".json",{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); }catch{} };
-
-/* ════════════════════════════════
    MOCK DATA
 ════════════════════════════════ */
 const FRIENDS_DATA = [
@@ -378,6 +386,26 @@ const FRIENDS_DATA = [
   {id:"sofia", name:"Sofia Reyes",  color:"#fd79a8", status:"offline", last:"Last seen 3h ago",           time:"3h",   unread:0},
   {id:"niko",  name:"Niko Petrov",  color:"#74b9ff", status:"online",  last:"Jamming on Spotify 🎸",      time:"5m",   unread:2},
 ];
+
+const INIT_MSGS = {
+  zara: [
+    {id:"z1",from:"them",text:"heyyy!! wanna do a jam session tonight? 🎵",ts:Date.now()-3600000},
+    {id:"z2",from:"me",  text:"YES omg I've been waiting for this 🙌",ts:Date.now()-3500000},
+    {id:"z3",from:"them",text:"I'll start a Spotify room — my new playlist is 🔥",ts:Date.now()-3400000},
+    {id:"z4",from:"me",  text:"perfect, adding Leo and Maya too",ts:Date.now()-3300000},
+  ],
+  leo: [
+    {id:"l1",from:"them",text:"rematch??",ts:Date.now()-7200000},
+    {id:"l2",from:"me",  text:"you just got lucky last time 😤",ts:Date.now()-7100000},
+    {id:"l3",from:"them",text:"sure sure, accept the invite 😂",ts:Date.now()-7000000},
+  ],
+  maya: [
+    {id:"m1",from:"them",text:"how's everything going? 🌈",ts:Date.now()-14400000},
+    {id:"m2",from:"me",  text:"pretty good! working on some stuff",ts:Date.now()-14000000},
+  ],
+  kai:  [{id:"k1",from:"them",text:"Watch party tonight for Dune 2!! 🏜️",ts:Date.now()-3600000}],
+  niko: [{id:"n1",from:"them",text:"Jamming on Spotify rn, join! 🎸",ts:Date.now()-1800000}],
+};
 
 const TRACKS = [
   {title:"WHERE SHE GOES",artist:"Bad Bunny",src:"Spotify",em:"🎵",dur:213},
@@ -447,37 +475,16 @@ const toEmbedUrl = url => {
 /* ════════════════════════════════
    LIVE MESSAGES HOOK
 ════════════════════════════════ */
-function useLiveMsgs(roomId){
-  const [msgs,setMsgs] = useState([]);
-  useEffect(()=>{
-    if(!roomId){setMsgs([]);return;}
-    setMsgs([]);
-    const poll = async()=>{
-      const d = await fbRead("/cinema/"+roomId+"/chat");
-      if(!d) return;
-      setMsgs(Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>a.ts-b.ts));
-    };
-    poll();
-    const iv=setInterval(poll,2500);
-    return()=>clearInterval(iv);
-  },[roomId]);
-  return msgs;
-}
-
-function useLiveChatMsgs(friendId){
-  const [msgs,setMsgs] = useState([]);
-  useEffect(()=>{
-    if(!friendId){setMsgs([]);return;}
-    setMsgs([]);
-    const poll = async()=>{
-      const d = await fbRead("/chats/"+friendId);
-      if(!d) return;
-      setMsgs(Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>a.ts-b.ts));
-    };
-    poll();
-    const iv=setInterval(poll,2500);
-    return()=>clearInterval(iv);
-  },[friendId]);
+function useLiveMsgs(roomId) {
+  const [msgs, setMsgs] = useState([]);
+  useEffect(() => {
+    if (!roomId) { setMsgs([]); return; }
+    return onValue(ref(db, `cinema/${roomId}/chat`), (snap) => {
+      const data = snap.val();
+      if (!data) { setMsgs([]); return; }
+      setMsgs(Object.entries(data).map(([id, v]) => ({ id, ...v })).sort((a, b) => a.ts - b.ts));
+    });
+  }, [roomId]);
   return msgs;
 }
 
@@ -486,23 +493,26 @@ function useLiveChatMsgs(friendId){
 ════════════════════════════════ */
 export default function Jam(){
   /* auth */
-  const [screen,setScreen]   = useState("app");
+  const [screen,setScreen]   = useState("auth");
   const [authTab,setAuthTab] = useState("login");
   const [nameVal,setNameVal] = useState("");
   const [emailVal,setEmailVal] = useState("");
   const [pwVal,setPwVal]     = useState("");
   const [authErr,setAuthErr] = useState("");
-  const [user,setUser]       = useState({name:"You",email:"you@jam.app",color:"#e8445a"});
+  const [user,setUser]       = useState(null);
 
   /* nav */
   const [nav,setNav] = useState("chat");
 
   /* chat */
   const [friends,setFriends] = useState(FRIENDS_DATA);
-  const [activeFriend,setActiveFriend] = useState(FRIENDS_DATA[0]);
+  const [activeFriend,setActiveFriend] = useState(null);
+  const [messages,setMessages] = useState(INIT_MSGS);
   const [chatInput,setChatInput] = useState("");
   const [showEmoji,setShowEmoji] = useState(false);
   const [replyTo,setReplyTo]   = useState(null);
+  const [aiLoading,setAiLoading] = useState(false);
+  const [typing,setTyping]       = useState(false);
   const [showNewChat,setShowNewChat] = useState(false);
   const [newChatName,setNewChatName] = useState("");
   const msgsEndRef = useRef(null);
@@ -531,8 +541,6 @@ export default function Jam(){
   const cinemaMsgs = useLiveMsgs(cinemaRoomId);
   const cinemaChatEnd = useRef(null);
 
-  const liveMsgs = useLiveChatMsgs(activeFriend?.id);
-
   /* games */
   const [game,setGame]   = useState(null);
   const [board,setBoard] = useState(Array(9).fill(null));
@@ -558,6 +566,32 @@ export default function Jam(){
   /* ── EFFECTS ── */
   useEffect(()=>{ msgsEndRef.current?.scrollIntoView({behavior:"smooth"}); },[messages,typing,activeFriend]);
   useEffect(()=>{ cinemaChatEnd.current?.scrollIntoView({behavior:"smooth"}); },[cinemaMsgs]);
+
+  // Handle Auth State
+  useEffect(() => {
+    return onAuthStateChanged(auth, (u) => {
+      if (u) {
+        setUser({ name: u.displayName, email: u.email, uid: u.uid, color: pickColor(u.displayName || u.email) });
+        setScreen("app");
+      } else {
+        setUser(null);
+        setScreen("auth");
+      }
+    });
+  }, []);
+
+  // Load Private Chat History
+  useEffect(() => {
+    if (!user) return;
+    return onValue(ref(db, `users/${user.uid}/chats`), (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const formatted = {};
+        Object.keys(data).forEach(fid => formatted[fid] = Object.values(data[fid]));
+        setMessages(prev => ({ ...prev, ...formatted }));
+      }
+    });
+  }, [user]);
 
   useEffect(()=>{
     if(callOn){ callRef.current=setInterval(()=>setCallSecs(s=>s+1),1000); }
@@ -589,22 +623,72 @@ export default function Jam(){
   },[]);
 
   /* ── AUTH ── */
-  const doAuth = ()=>{
-    const name = nameVal.trim() || emailVal.split("@")[0];
-    if(!name){setAuthErr("Please enter your name");return;}
-    const color = pickColor(name);
-    setUser({name,email:emailVal,color});
-    setScreen("app");
-    showToast("👋","Welcome to Jam, "+name+"!");
+  const doAuth = async () => {
+    setAuthErr("");
+    try {
+      if (authTab === "signup") {
+        if (!nameVal.trim()) { setAuthErr("Please enter your name"); return; }
+        const cred = await createUserWithEmailAndPassword(auth, emailVal, pwVal);
+        await updateProfile(cred.user, { displayName: nameVal.trim() });
+      } else {
+        await signInWithEmailAndPassword(auth, emailVal, pwVal);
+      }
+    } catch (err) {
+      setAuthErr(err.message.replace("Firebase: ", ""));
+    }
   };
 
-  /* ── SEND CHAT MESSAGE ── */
-  const sendChat = async()=>{
-    if(!chatInput.trim()||!activeFriend) return;
+  /* ── SEND CHAT MESSAGE (AI powered) ── */
+  const sendChat = async () => {
+    if (!chatInput.trim() || aiLoading || !activeFriend || !user) return;
     const txt = chatInput.trim();
     setChatInput(""); setShowEmoji(false); setReplyTo(null);
     const fid = activeFriend.id;
-    await fbPush("/chats/"+fid,{text:txt,sender:user.name,color:user.color});
+    const msgData = { id: "m" + Date.now(), from: "me", text: txt, ts: Date.now(), replyTo: replyTo ? { text: replyTo.text, from: replyTo.from } : null };
+
+    const userChatRef = ref(db, `users/${user.uid}/chats/${fid}`);
+    push(userChatRef, msgData);
+
+    // clear unread
+    setFriends(f=>f.map(x=>x.id===fid?{...x,unread:0,last:txt}:x));
+    setTyping(true); setAiLoading(true);
+    try{
+      const hist = (messages[fid]||[]).slice(-6).map(m=>({role:m.from==="me"?"user":"assistant",content:m.text}));
+      hist.push({role:"user",content:txt});
+      const res = await fetch("https://api.anthropic.com/v1/messages",{
+        method:"POST",
+        headers:{
+          "Content-Type":"application/json",
+          "x-api-key": import.meta.env.VITE_ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01"
+        },
+        body:JSON.stringify({
+          model:"claude-3-5-sonnet-20240620",max_tokens:180,
+          system:"You are "+activeFriend.name+", a close friend on Jam app. Be casual, warm, use emojis naturally. Keep replies 1-2 sentences. Current status: "+activeFriend.last,
+          messages:hist
+        })
+      });
+      const d = await res.json();
+      const reply = d.content?.find(b=>b.type==="text")?.text || "lol 😂";
+      setTyping(false);
+      const replyMsg = { id: "r" + Date.now(), from: "them", text: reply, ts: Date.now() };
+      push(userChatRef, replyMsg);
+      setFriends(f=>f.map(x=>x.id===fid?{...x,last:reply}:x));
+    }catch{
+      setTyping(false);
+      push(userChatRef, { id: "r" + Date.now(), from: "them", text: "hey brb! 👋", ts: Date.now() });
+    }
+    setAiLoading(false);
+  };
+
+  /* ── LOGOUT ── */
+  const doLogout = async () => {
+    try {
+      await signOut(auth);
+      showToast("👋", "Logged out successfully");
+    } catch (err) {
+      showToast("⚠️", "Logout failed");
+    }
   };
 
   /* ── NEW CONTACT ── */
@@ -614,6 +698,7 @@ export default function Jam(){
     const id = "custom_"+Date.now();
     const newFriend = {id,name,color:pickColor(name),status:"online",last:"Say hello!",time:"now",unread:0};
     setFriends(p=>[newFriend,...p]);
+    setMessages(p=>({...p,[id]:[]}));
     setActiveFriend(newFriend);
     setShowNewChat(false);
     setNewChatName("");
@@ -680,9 +765,9 @@ export default function Jam(){
     if(embed){ setCinemaEmbed(embed); showToast("🎬","Video loaded! Share the Jam link with friends to watch together"); }
     else showToast("⚠️","Please paste a valid YouTube link");
   };
-  const sendCinemaChat=async()=>{
-    if(!cinemaChatInput.trim()||!user) return;
-    await fbPush("/cinema/"+cinemaRoomId+"/chat",{text:cinemaChatInput.trim(),sender:user.name,color:user.color});
+  const sendCinemaChat = async () => {
+    if (!cinemaChatInput.trim() || !user) return;
+    await push(ref(db, `cinema/${cinemaRoomId}/chat`), { text: cinemaChatInput.trim(), sender: user.name, color: user.color, ts: Date.now() });
     setCinemaChatInput("");
   };
   const [cinemaChatInput,setCinemaChatInput] = useState("");
@@ -734,7 +819,7 @@ export default function Jam(){
   /* ════════════════════════════════
      RENDER APP
   ════════════════════════════════ */
-  const curMsgs   = liveMsgs;
+  const curMsgs   = activeFriend ? (messages[activeFriend.id]||[]) : [];
   const grouped   = groupMsgs(curMsgs);
   const trk       = TRACKS[trkIdx];
 
@@ -758,6 +843,9 @@ export default function Jam(){
           </button>
         ))}
         <div className="sb-gap"/>
+        <button className="logout-btn" title="Sign Out" onClick={doLogout}>
+          🚪
+        </button>
         <div className="me-av" style={{background:user?.color||"#e8445a"}} title={user?.name}>
           {initials(user?.name||"?")}
         </div>
@@ -781,7 +869,7 @@ export default function Jam(){
             {friends.map(f=>(
               <div key={f.id} className={"chat-item"+(activeFriend?.id===f.id?" on":"")}
                 onClick={()=>{setActiveFriend(f);setFriends(p=>p.map(x=>x.id===f.id?{...x,unread:0}:x));}}>
-                <div className={"ci-av"+(f.unread?" story-ring":"")} style={{background:f.color}}>
+                <div className="ci-av" style={{background:f.color}}>
                   {initials(f.name)}
                   <span className={"ci-dot "+(f.status==="online"?"online":"offline")}/>
                 </div>
@@ -827,11 +915,11 @@ export default function Jam(){
                 if(item.type==="date") return(
                   <div key={i} className="date-sep"><span>{item.label}</span></div>
                 );
-                const isMe = item.sender === user.name;
+                const isMe = item.from==="me";
                 return(
                   <div key={item.id} className={"msg-wrap "+(isMe?"me":"them")}>
                     <div className="msg-bubble-row">
-                      {!isMe&&<div className="msg-tiny-av" style={{background:item.color}}>{initials(item.sender)}</div>}
+                      {!isMe&&<div className="msg-tiny-av" style={{background:activeFriend.color}}>{initials(activeFriend.name)}</div>}
                       <div className="msg-card" onDoubleClick={()=>setReplyTo(item)}>
                         {item.replyTo&&(
                           <div className="reply-preview" onClick={()=>{}}>
@@ -887,7 +975,7 @@ export default function Jam(){
                   onChange={e=>setChatInput(e.target.value)}
                   onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}}
                 />
-                <button className="wa-send" onClick={sendChat} disabled={!chatInput.trim()}>➤</button>
+                <button className="wa-send" onClick={sendChat} disabled={aiLoading||!chatInput.trim()}>➤</button>
               </div>
             </div>
           </div>
