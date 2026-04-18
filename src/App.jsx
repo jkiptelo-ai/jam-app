@@ -379,26 +379,6 @@ const FRIENDS_DATA = [
   {id:"niko",  name:"Niko Petrov",  color:"#74b9ff", status:"online",  last:"Jamming on Spotify 🎸",      time:"5m",   unread:2},
 ];
 
-const INIT_MSGS = {
-  zara: [
-    {id:"z1",from:"them",text:"heyyy!! wanna do a jam session tonight? 🎵",ts:Date.now()-3600000},
-    {id:"z2",from:"me",  text:"YES omg I've been waiting for this 🙌",ts:Date.now()-3500000},
-    {id:"z3",from:"them",text:"I'll start a Spotify room — my new playlist is 🔥",ts:Date.now()-3400000},
-    {id:"z4",from:"me",  text:"perfect, adding Leo and Maya too",ts:Date.now()-3300000},
-  ],
-  leo: [
-    {id:"l1",from:"them",text:"rematch??",ts:Date.now()-7200000},
-    {id:"l2",from:"me",  text:"you just got lucky last time 😤",ts:Date.now()-7100000},
-    {id:"l3",from:"them",text:"sure sure, accept the invite 😂",ts:Date.now()-7000000},
-  ],
-  maya: [
-    {id:"m1",from:"them",text:"how's everything going? 🌈",ts:Date.now()-14400000},
-    {id:"m2",from:"me",  text:"pretty good! working on some stuff",ts:Date.now()-14000000},
-  ],
-  kai:  [{id:"k1",from:"them",text:"Watch party tonight for Dune 2!! 🏜️",ts:Date.now()-3600000}],
-  niko: [{id:"n1",from:"them",text:"Jamming on Spotify rn, join! 🎸",ts:Date.now()-1800000}],
-};
-
 const TRACKS = [
   {title:"WHERE SHE GOES",artist:"Bad Bunny",src:"Spotify",em:"🎵",dur:213},
   {title:"Blinding Lights",artist:"The Weeknd",src:"Spotify",em:"🌙",dur:200},
@@ -484,6 +464,23 @@ function useLiveMsgs(roomId){
   return msgs;
 }
 
+function useLiveChatMsgs(friendId){
+  const [msgs,setMsgs] = useState([]);
+  useEffect(()=>{
+    if(!friendId){setMsgs([]);return;}
+    setMsgs([]);
+    const poll = async()=>{
+      const d = await fbRead("/chats/"+friendId);
+      if(!d) return;
+      setMsgs(Object.entries(d).map(([id,v])=>({id,...v})).sort((a,b)=>a.ts-b.ts));
+    };
+    poll();
+    const iv=setInterval(poll,2500);
+    return()=>clearInterval(iv);
+  },[friendId]);
+  return msgs;
+}
+
 /* ════════════════════════════════
    ROOT
 ════════════════════════════════ */
@@ -503,12 +500,9 @@ export default function Jam(){
   /* chat */
   const [friends,setFriends] = useState(FRIENDS_DATA);
   const [activeFriend,setActiveFriend] = useState(FRIENDS_DATA[0]);
-  const [messages,setMessages] = useState(INIT_MSGS);
   const [chatInput,setChatInput] = useState("");
   const [showEmoji,setShowEmoji] = useState(false);
   const [replyTo,setReplyTo]   = useState(null);
-  const [aiLoading,setAiLoading] = useState(false);
-  const [typing,setTyping]       = useState(false);
   const [showNewChat,setShowNewChat] = useState(false);
   const [newChatName,setNewChatName] = useState("");
   const msgsEndRef = useRef(null);
@@ -536,6 +530,8 @@ export default function Jam(){
   const [cinemaRoomId]               = useState("room1");
   const cinemaMsgs = useLiveMsgs(cinemaRoomId);
   const cinemaChatEnd = useRef(null);
+
+  const liveMsgs = useLiveChatMsgs(activeFriend?.id);
 
   /* games */
   const [game,setGame]   = useState(null);
@@ -602,34 +598,13 @@ export default function Jam(){
     showToast("👋","Welcome to Jam, "+name+"!");
   };
 
-  /* ── SEND CHAT MESSAGE (AI powered) ── */
+  /* ── SEND CHAT MESSAGE ── */
   const sendChat = async()=>{
-    if(!chatInput.trim()||aiLoading||!activeFriend) return;
+    if(!chatInput.trim()||!activeFriend) return;
     const txt = chatInput.trim();
     setChatInput(""); setShowEmoji(false); setReplyTo(null);
     const fid = activeFriend.id;
-    const newMsg = {id:"m"+Date.now(),from:"me",text:txt,ts:Date.now(),replyTo:replyTo?{text:replyTo.text,from:replyTo.from}:null};
-    setMessages(p=>({...p,[fid]:[...(p[fid]||[]),newMsg]}));
-    setFriends(f=>f.map(x=>x.id===fid?{...x,unread:0,last:txt}:x));
-    setTyping(true); setAiLoading(true);
-
-    const replies = [
-      "Sounds great! 🎵",
-      "Haha, I’m in!",
-      "That sounds awesome!",
-      "Can’t wait — let’s go!",
-      "That’s fire 🔥",
-      "I’ll join you in a bit."
-    ];
-    const replyText = replies[Math.floor(Math.random()*replies.length)];
-
-    setTimeout(()=>{
-      setTyping(false);
-      const replyMsg = {id:"r"+Date.now(),from:"them",text:replyText,ts:Date.now()};
-      setMessages(p=>({...p,[fid]:[...(p[fid]||[]),replyMsg]}));
-      setFriends(f=>f.map(x=>x.id===fid?{...x,last:replyText}:x));
-      setAiLoading(false);
-    }, 900);
+    await fbPush("/chats/"+fid,{text:txt,sender:user.name,color:user.color});
   };
 
   /* ── NEW CONTACT ── */
@@ -639,7 +614,6 @@ export default function Jam(){
     const id = "custom_"+Date.now();
     const newFriend = {id,name,color:pickColor(name),status:"online",last:"Say hello!",time:"now",unread:0};
     setFriends(p=>[newFriend,...p]);
-    setMessages(p=>({...p,[id]:[]}));
     setActiveFriend(newFriend);
     setShowNewChat(false);
     setNewChatName("");
@@ -760,7 +734,7 @@ export default function Jam(){
   /* ════════════════════════════════
      RENDER APP
   ════════════════════════════════ */
-  const curMsgs   = activeFriend ? (messages[activeFriend.id]||[]) : [];
+  const curMsgs   = liveMsgs;
   const grouped   = groupMsgs(curMsgs);
   const trk       = TRACKS[trkIdx];
 
@@ -853,11 +827,11 @@ export default function Jam(){
                 if(item.type==="date") return(
                   <div key={i} className="date-sep"><span>{item.label}</span></div>
                 );
-                const isMe = item.from==="me";
+                const isMe = item.sender === user.name;
                 return(
                   <div key={item.id} className={"msg-wrap "+(isMe?"me":"them")}>
                     <div className="msg-bubble-row">
-                      {!isMe&&<div className="msg-tiny-av" style={{background:activeFriend.color}}>{initials(activeFriend.name)}</div>}
+                      {!isMe&&<div className="msg-tiny-av" style={{background:item.color}}>{initials(item.sender)}</div>}
                       <div className="msg-card" onDoubleClick={()=>setReplyTo(item)}>
                         {item.replyTo&&(
                           <div className="reply-preview" onClick={()=>{}}>
@@ -913,7 +887,7 @@ export default function Jam(){
                   onChange={e=>setChatInput(e.target.value)}
                   onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendChat();}}}
                 />
-                <button className="wa-send" onClick={sendChat} disabled={aiLoading||!chatInput.trim()}>➤</button>
+                <button className="wa-send" onClick={sendChat} disabled={!chatInput.trim()}>➤</button>
               </div>
             </div>
           </div>
