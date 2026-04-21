@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { initializeApp } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged } from "firebase/auth";
-import { getDatabase, ref, set, push, onValue, serverTimestamp } from "firebase/database";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
+import { getDatabase, ref, set, push, onValue, remove, get } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBfaqmdxpwOqs7GwBUadjHj_2Eh2nprlj4",
@@ -17,308 +17,251 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 
-const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+const CSS = `
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;
-  --border:#ffffff12;--accent:#ff4d6d;--accent2:#7c3aed;--accent3:#06d6a0;
-  --text:#f0eeff;--muted:#8885a8;
+  --bg:#07080d;--s1:#0f1018;--s2:#161720;--s3:#1e2030;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);
+  --a1:#e8445a;--a2:#6c5ce7;--a3:#00d4aa;--a4:#f0a500;
+  --text:#eeeaf8;--muted:#7a7898;
   --fh:'Syne',sans-serif;--fb:'DM Sans',sans-serif;
 }
 body{background:var(--bg);color:var(--text);font-family:var(--fb);overflow:hidden;-webkit-font-smoothing:antialiased}
-::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
-.app{width:100vw;height:100vh;display:flex;flex-direction:column;position:relative;overflow:hidden}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--s3);border-radius:10px}
+.app{width:100vw;height:100vh;display:flex;overflow:hidden}
 .mesh{position:fixed;inset:0;pointer-events:none;z-index:0;background:
-  radial-gradient(ellipse 60% 50% at 20% 20%,#ff4d6d18 0%,transparent 60%),
-  radial-gradient(ellipse 50% 60% at 80% 80%,#7c3aed18 0%,transparent 60%)}
+  radial-gradient(ellipse 55% 45% at 15% 15%,rgba(232,68,90,.1) 0%,transparent 55%),
+  radial-gradient(ellipse 45% 55% at 85% 85%,rgba(108,92,231,.1) 0%,transparent 55%)}
 
 /* AUTH */
-.auth{position:relative;z-index:10;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
-.auth-card{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:48px 40px;width:420px;max-width:95vw;animation:fadeUp .6s cubic-bezier(.16,1,.3,1)}
-@keyframes fadeUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
-.logo{font-family:var(--fh);font-size:3rem;font-weight:800;letter-spacing:-2px;margin-bottom:6px}
-.logo span{color:var(--accent)}
-.tagline{color:var(--muted);font-size:.9rem;margin-bottom:36px}
-.tabs{display:flex;gap:4px;background:var(--bg);border-radius:12px;padding:4px;margin-bottom:28px}
-.tab-btn{flex:1;padding:10px;border:none;border-radius:8px;background:transparent;color:var(--muted);font-family:var(--fb);font-size:.9rem;cursor:pointer;transition:all .2s}
-.tab-btn.active{background:var(--accent);color:white;font-weight:500}
-.form-group{margin-bottom:16px}
-.form-label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:6px;letter-spacing:.05em;text-transform:uppercase}
-.form-input{width:100%;padding:12px 16px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:.95rem;outline:none;transition:border-color .2s}
-.form-input:focus{border-color:var(--accent)}
-.form-input::placeholder{color:#ffffff30}
-.btn-primary{width:100%;padding:14px;background:var(--accent);border:none;border-radius:12px;color:white;font-family:var(--fh);font-size:1rem;font-weight:700;cursor:pointer;transition:all .2s;margin-top:8px}
-.btn-primary:hover{background:#ff2d52;box-shadow:0 0 30px #ff4d6d66;transform:translateY(-1px)}
-.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
-.auth-err{color:var(--accent);font-size:.8rem;margin-top:8px;text-align:center;min-height:18px}
+.auth-wrap{position:relative;z-index:10;width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:16px}
+.auth-card{width:100%;max-width:420px;background:var(--s1);border:1px solid var(--border2);border-radius:28px;padding:44px 38px;animation:fadeUp .5s cubic-bezier(.16,1,.3,1)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+.auth-logo{font-family:var(--fh);font-size:3rem;font-weight:800;letter-spacing:-2px;margin-bottom:4px}
+.auth-logo em{color:var(--a1);font-style:normal}
+.auth-sub{color:var(--muted);font-size:.85rem;margin-bottom:28px}
+.auth-tabs{display:flex;gap:4px;background:var(--bg);border-radius:12px;padding:4px;margin-bottom:22px}
+.auth-tab{flex:1;padding:9px;border:none;border-radius:8px;background:transparent;color:var(--muted);font-family:var(--fb);font-size:.88rem;cursor:pointer;transition:all .2s}
+.auth-tab.on{background:var(--a1);color:#fff;font-weight:600}
+.field{margin-bottom:13px}
+.field label{display:block;font-size:.72rem;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
+.field input{width:100%;padding:11px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:.9rem;outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--a1)}
+.field input::placeholder{color:rgba(255,255,255,.18)}
+.btn-red{width:100%;padding:13px;background:var(--a1);border:none;border-radius:12px;color:#fff;font-family:var(--fh);font-size:.95rem;font-weight:700;cursor:pointer;transition:all .2s;margin-top:4px}
+.btn-red:hover{filter:brightness(1.1);box-shadow:0 0 28px rgba(232,68,90,.4);transform:translateY(-1px)}
+.btn-red:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.auth-err{color:var(--a1);font-size:.78rem;margin-top:8px;text-align:center;min-height:16px}
 
 /* LAYOUT */
-.main{position:relative;z-index:10;display:flex;width:100%;height:100%}
+.layout{position:relative;z-index:5;display:flex;width:100%;height:100%}
 
 /* SIDEBAR */
-.sidebar{width:68px;height:100%;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:8px;flex-shrink:0}
-.sidebar-logo{font-family:var(--fh);font-size:1.4rem;font-weight:800;color:var(--accent);margin-bottom:16px}
-.nav-btn{width:46px;height:46px;border-radius:13px;border:none;background:transparent;color:var(--muted);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
-.nav-btn:hover{background:var(--surface2);color:var(--text)}
-.nav-btn.active{background:var(--accent);color:white;box-shadow:0 0 18px #ff4d6d55}
-.sidebar-spacer{flex:1}
-.me-av{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;color:white;border:2px solid var(--border);cursor:pointer}
+.sidebar{width:66px;height:100%;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:14px 0;gap:5px;flex-shrink:0}
+.sb-logo{font-family:var(--fh);font-size:1.4rem;font-weight:800;color:var(--a1);margin-bottom:12px;letter-spacing:-1px}
+.sb-btn{width:46px;height:46px;border-radius:13px;border:none;background:transparent;color:var(--muted);font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;position:relative}
+.sb-btn:hover{background:var(--s2);color:var(--text)}
+.sb-btn.on{background:var(--a1);color:#fff;box-shadow:0 0 18px rgba(232,68,90,.35)}
+.sb-gap{flex:1}
+.me-av{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.85rem;font-weight:700;color:#fff;border:2px solid var(--border2);cursor:pointer}
 
-/* CONTACTS PANEL */
-.panel{width:280px;height:100%;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
-.panel-header{padding:18px 14px 10px;display:flex;align-items:center;justify-content:space-between}
+/* CONTACTS */
+.panel{width:280px;height:100%;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.panel-hd{padding:16px 14px 10px;display:flex;align-items:center;justify-content:space-between}
 .panel-title{font-family:var(--fh);font-size:1rem;font-weight:700}
-.icon-btn{width:30px;height:30px;border-radius:8px;border:none;background:var(--surface2);color:var(--muted);font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
-.icon-btn:hover{color:var(--text)}
-.search-bar{margin:0 10px 10px;position:relative}
-.search-bar input{width:100%;padding:8px 12px 8px 30px;background:var(--bg);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--fb);font-size:.83rem;outline:none}
-.search-bar input::placeholder{color:var(--muted)}
-.search-icon{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.85rem}
-.friend-list{flex:1;overflow-y:auto;padding:0 6px 8px}
-.friend-item{display:flex;align-items:center;gap:9px;padding:10px 8px;border-radius:11px;cursor:pointer;transition:background .15s;margin-bottom:2px}
-.friend-item:hover{background:var(--surface2)}
-.friend-item.active{background:rgba(255,77,109,.1)}
-.av-wrap{position:relative;flex-shrink:0}
-.av-img{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:white}
-.status-dot{position:absolute;bottom:1px;right:1px;width:10px;height:10px;border-radius:50%;border:2px solid var(--surface)}
-.status-dot.online{background:var(--accent3)}
-.status-dot.offline{background:#475569}
-.f-info{flex:1;min-width:0}
-.f-name{font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.f-status{font-size:.73rem;color:var(--muted);margin-top:1px}
-.no-friends{padding:24px 16px;text-align:center;color:var(--muted);font-size:.83rem;line-height:1.6}
+.ic-btn{width:30px;height:30px;border-radius:8px;border:none;background:var(--s2);color:var(--muted);font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.ic-btn:hover{color:var(--text);background:var(--s3)}
+.srch{margin:0 10px 10px;position:relative}
+.srch input{width:100%;padding:8px 12px 8px 30px;background:var(--bg);border:1px solid var(--border);border-radius:9px;color:var(--text);font-family:var(--fb);font-size:.82rem;outline:none}
+.srch input::placeholder{color:var(--muted)}
+.srch-ic{position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:.85rem;pointer-events:none}
+.contact-list{flex:1;overflow-y:auto;padding:0 6px 8px}
+.contact-item{display:flex;align-items:center;gap:9px;padding:10px 8px;border-radius:11px;cursor:pointer;transition:background .15s;margin-bottom:2px}
+.contact-item:hover{background:var(--s2)}
+.contact-item.on{background:rgba(232,68,90,.1)}
+.c-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.9rem;font-weight:700;color:#fff;flex-shrink:0}
+.c-info{flex:1;min-width:0}
+.c-name{font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c-sub{font-size:.72rem;color:var(--muted);margin-top:1px}
+.no-contacts{padding:20px 14px;text-align:center;color:var(--muted);font-size:.8rem;line-height:1.7}
 
 /* CHAT */
-.chat-main{flex:1;display:flex;flex-direction:column;height:100%;min-width:0;background:var(--bg)}
-.chat-header{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--surface);flex-shrink:0}
-.chat-header-name{font-family:var(--fh);font-size:.95rem;font-weight:700}
-.chat-header-status{font-size:.72rem;color:var(--accent3)}
-.chat-actions{display:flex;gap:5px;margin-left:auto}
-.action-btn{width:34px;height:34px;border-radius:9px;border:none;background:var(--surface2);color:var(--muted);font-size:.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
-.action-btn:hover{background:var(--accent);color:white}
-.messages{flex:1;overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:3px}
-.msg-wrap{display:flex;flex-direction:column;margin-bottom:2px}
-.msg-wrap.mine{align-items:flex-end}
-.bubble{max-width:65%;padding:9px 13px 6px;border-radius:16px;font-size:.87rem;line-height:1.55;word-break:break-word;position:relative}
-.bubble.them{background:var(--surface2);border-top-left-radius:3px}
-.bubble.mine{background:#005c4b;color:#e9fdd7;border-top-right-radius:3px}
-.bubble-time{font-size:.63rem;color:rgba(255,255,255,.4);text-align:right;margin-top:3px}
-.bubble.them .bubble-time{color:var(--muted)}
-.msg-sender{font-size:.68rem;color:var(--muted);padding:0 4px;margin-bottom:2px}
-.typing-wrap{display:flex;gap:4px;padding:9px 13px;background:var(--surface2);border-radius:16px;border-top-left-radius:3px;width:fit-content;align-items:center}
-.t-dot{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:td 1.2s infinite}
-.t-dot:nth-child(2){animation-delay:.2s}.t-dot:nth-child(3){animation-delay:.4s}
-@keyframes td{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
-.chat-input-area{padding:10px 14px 12px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
-.emoji-tray{display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap}
+.chat-area{flex:1;display:flex;flex-direction:column;height:100%;min-width:0;background:var(--bg)}
+.chat-hd{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;background:var(--s1);flex-shrink:0}
+.chat-hd-name{font-family:var(--fh);font-size:.95rem;font-weight:700}
+.chat-hd-sub{font-size:.71rem;color:var(--a3);margin-top:1px}
+.chat-hd-acts{display:flex;gap:5px;margin-left:auto}
+.hd-btn{width:34px;height:34px;border-radius:9px;border:none;background:var(--s2);color:var(--muted);font-size:.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.hd-btn:hover{background:var(--a1);color:#fff}
+.msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:2px;background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none'%3E%3Cg fill='%23ffffff' fill-opacity='0.015'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")}
+.date-div{display:flex;justify-content:center;margin:10px 0}
+.date-chip{background:var(--s2);border-radius:20px;padding:3px 12px;font-size:.68rem;color:var(--muted)}
+.msg-wrap{display:flex;flex-direction:column;margin-bottom:1px}
+.msg-wrap.me{align-items:flex-end}
+.bubble{max-width:65%;padding:9px 12px 5px;border-radius:14px;font-size:.87rem;line-height:1.55;word-break:break-word}
+.bubble.them{background:var(--s2);border-top-left-radius:3px}
+.bubble.me{background:#005c4b;color:#e9fdd7;border-top-right-radius:3px}
+.b-time{font-size:.62rem;color:rgba(255,255,255,.35);text-align:right;margin-top:2px}
+.bubble.them .b-time{color:var(--muted)}
+.b-sender{font-size:.67rem;color:var(--muted);padding:0 3px;margin-bottom:2px}
+.typing-row{display:flex;gap:4px;padding:8px 12px;background:var(--s2);border-radius:14px;border-top-left-radius:3px;width:fit-content;align-items:center}
+.td{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:tda 1.2s infinite}
+.td:nth-child(2){animation-delay:.2s}.td:nth-child(3){animation-delay:.4s}
+@keyframes tda{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+.input-area{padding:9px 12px 11px;border-top:1px solid var(--border);background:var(--s1);flex-shrink:0}
+.emoji-tray{display:flex;gap:5px;margin-bottom:6px;flex-wrap:wrap}
 .em{background:none;border:none;font-size:1.05rem;cursor:pointer;padding:2px 4px;border-radius:6px;transition:transform .15s}
 .em:hover{transform:scale(1.3)}
 .input-row{display:flex;gap:7px;align-items:flex-end}
-.chat-ta{flex:1;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:22px;color:var(--text);font-family:var(--fb);font-size:.88rem;outline:none;resize:none;max-height:100px;line-height:1.45;transition:border-color .2s}
-.chat-ta:focus{border-color:var(--accent)}
-.chat-ta::placeholder{color:var(--muted)}
-.send-btn{width:42px;height:42px;border-radius:50%;border:none;background:var(--accent);color:white;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0}
+.msg-ta{flex:1;padding:10px 14px;background:var(--bg);border:none;border-radius:22px;color:var(--text);font-family:var(--fb);font-size:.87rem;outline:none;resize:none;max-height:100px;line-height:1.45}
+.msg-ta::placeholder{color:var(--muted)}
+.send-btn{width:42px;height:42px;border-radius:50%;border:none;background:var(--a1);color:#fff;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s}
 .send-btn:hover{filter:brightness(1.1)}
 .send-btn:disabled{opacity:.4;cursor:not-allowed}
-.em-toggle{width:42px;height:42px;border-radius:50%;border:none;background:var(--surface2);color:var(--muted);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.em-toggle{width:42px;height:42px;border-radius:50%;border:none;background:var(--s2);color:var(--muted);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 
-/* EMPTY / WELCOME */
+/* EMPTY */
 .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);text-align:center;padding:24px}
-.empty-icon{font-size:3rem;opacity:.4}
+.empty-icon{font-size:3rem;opacity:.35}
 .empty-title{font-family:var(--fh);font-size:1rem;font-weight:700;color:var(--text)}
-.empty-sub{font-size:.82rem;max-width:260px;line-height:1.6}
+.empty-sub{font-size:.81rem;max-width:260px;line-height:1.6}
+.empty-link{color:var(--a1);font-weight:600;font-size:.85rem}
 
-/* JAM ROOM */
-.jam-page{flex:1;height:100%;overflow-y:auto;background:var(--bg)}
-.jam-inner{padding:26px;max-width:700px}
-.page-title{font-family:var(--fh);font-size:1.7rem;font-weight:800;letter-spacing:-1px;margin-bottom:4px}
-.page-title em{color:var(--accent);font-style:normal}
+/* EXPLORE / FOLLOW */
+.page{flex:1;height:100%;overflow-y:auto;background:var(--bg)}
+.page-inner{padding:22px;max-width:640px}
+.page-title{font-family:var(--fh);font-size:1.6rem;font-weight:800;letter-spacing:-1px;margin-bottom:4px}
+.page-title em{color:var(--a1);font-style:normal}
 .page-sub{color:var(--muted);font-size:.83rem;margin-bottom:22px}
 .sec-lbl{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
-.player-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:22px;margin-bottom:20px;position:relative;overflow:hidden}
-.player-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 60% at 85% 50%,rgba(124,58,237,.12) 0%,transparent 60%);pointer-events:none}
-.np-row{display:flex;align-items:center;gap:14px;margin-bottom:16px}
-.trk-art{width:58px;height:58px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:1.7rem;transition:background .5s}
-.trk-name{font-family:var(--fh);font-size:.95rem;font-weight:700}
-.trk-artist{font-size:.78rem;color:var(--muted);margin-top:2px}
-.trk-src{font-size:.68rem;color:var(--accent3);margin-top:3px}
-.prog-bar{height:4px;background:var(--surface2);border-radius:4px;cursor:pointer;margin-bottom:4px}
-.prog-fill{height:100%;background:var(--accent);border-radius:4px;transition:width .5s linear}
-.prog-times{display:flex;justify-content:space-between;font-size:.68rem;color:var(--muted);margin-bottom:12px}
-.ctrl-row{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:12px}
-.ctrl{background:none;border:none;color:var(--muted);font-size:1.05rem;cursor:pointer;padding:7px;border-radius:8px;transition:all .2s}
-.ctrl:hover{color:var(--text);background:var(--surface2)}
-.ctrl.pp{width:46px;height:46px;border-radius:50%;background:var(--accent);color:white;font-size:1.1rem;display:flex;align-items:center;justify-content:center}
-.ctrl.pp:hover{filter:brightness(1.1);box-shadow:0 0 18px #ff4d6d55}
-.vol-row{display:flex;align-items:center;gap:10px}
-.vol-sl{flex:1;-webkit-appearance:none;appearance:none;height:3px;background:var(--surface2);border-radius:3px;outline:none;cursor:pointer}
-.vol-sl::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--accent);cursor:pointer}
-.src-row{display:flex;gap:10px;margin-bottom:18px}
-.src-card{flex:1;padding:14px 10px;background:var(--surface);border:1px solid var(--border);border-radius:16px;cursor:pointer;transition:all .2s;text-align:center}
-.src-card:hover{border-color:var(--accent);transform:translateY(-2px)}
-.src-card.on{border-color:var(--accent);background:rgba(255,77,109,.08)}
-.src-icon{font-size:1.6rem;margin-bottom:6px}
-.src-name{font-family:var(--fh);font-size:.82rem;font-weight:700}
-.src-desc{font-size:.68rem;color:var(--muted);margin-top:2px}
-.url-row{display:flex;gap:8px;margin-bottom:18px}
-.url-inp{flex:1;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:11px;color:var(--text);font-family:var(--fb);font-size:.85rem;outline:none;transition:border-color .2s}
-.url-inp:focus{border-color:var(--accent)}
-.url-inp::placeholder{color:var(--muted)}
-.url-btn{padding:10px 16px;background:var(--accent);border:none;border-radius:11px;color:white;font-family:var(--fh);font-size:.85rem;font-weight:700;cursor:pointer;white-space:nowrap}
-.url-btn:hover{filter:brightness(1.1)}
-.q-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:11px;cursor:pointer;transition:background .15s}
-.q-item:hover{background:var(--surface2)}
-.q-item.on{background:rgba(255,77,109,.1)}
-.q-art{width:36px;height:36px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
-.q-name{font-size:.85rem;font-weight:500}
-.q-meta{font-size:.72rem;color:var(--muted)}
-.q-dur{font-size:.7rem;color:var(--muted);margin-left:auto}
 
-/* CINEMA */
-.cinema-screen{width:100%;aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden;margin-bottom:14px;border:1px solid var(--border)}
-.cinema-screen iframe{width:100%;height:100%;border:none}
-.cinema-placeholder{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted)}
-.cinema-placeholder-icon{font-size:3.5rem;opacity:.4}
-.cinema-chat{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:16px}
-.cinema-chat-hd{padding:11px 14px;border-bottom:1px solid var(--border);font-family:var(--fh);font-size:.88rem;font-weight:700}
-.cinema-msgs{height:180px;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:5px}
-.cinema-msg{font-size:.81rem;display:flex;gap:5px}
-.cinema-msg-name{font-weight:600;flex-shrink:0}
-.cinema-msg-text{color:var(--muted)}
-.cinema-inp-row{display:flex;gap:7px;padding:9px 10px;border-top:1px solid var(--border)}
-.cinema-inp{flex:1;padding:7px 12px;background:var(--bg);border:1px solid var(--border);border-radius:20px;color:var(--text);font-family:var(--fb);font-size:.82rem;outline:none}
-.cinema-inp::placeholder{color:var(--muted)}
-.cinema-send{padding:7px 14px;background:var(--accent);border:none;border-radius:20px;color:white;font-size:.82rem;cursor:pointer;font-family:var(--fh);font-weight:700}
+/* USER CARDS */
+.user-card{display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--s1);border:1px solid var(--border);border-radius:14px;margin-bottom:8px}
+.user-av{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:#fff;flex-shrink:0;cursor:pointer}
+.user-info{flex:1;min-width:0}
+.user-name{font-size:.9rem;font-weight:600;cursor:pointer}
+.user-name:hover{color:var(--a1)}
+.user-sub{font-size:.73rem;color:var(--muted);margin-top:2px}
+.follow-btn{padding:7px 16px;border-radius:20px;border:none;font-family:var(--fh);font-size:.78rem;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.follow-btn.follow{background:var(--a1);color:#fff}
+.follow-btn.follow:hover{filter:brightness(1.1)}
+.follow-btn.following{background:var(--s2);color:var(--muted);border:1px solid var(--border2)}
+.follow-btn.following:hover{background:rgba(232,68,90,.15);color:var(--a1);border-color:var(--a1)}
+.follow-btn.mutual{background:var(--a3);color:var(--bg)}
 
-/* GAMES */
-.games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:12px;margin-bottom:22px}
-.g-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px 14px;cursor:pointer;transition:all .2s;text-align:center}
-.g-card:hover{transform:translateY(-3px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
-.g-icon{font-size:2rem;margin-bottom:8px}
-.g-name{font-family:var(--fh);font-size:.88rem;font-weight:700}
-.g-pl{font-size:.7rem;color:var(--muted);margin-top:2px}
-.g-badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:.65rem;font-weight:700;margin-top:6px}
+/* PROFILE */
+.profile-card{background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:20px;text-align:center}
+.profile-av-big{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#fff;margin:0 auto 12px;border:3px solid var(--a1)}
+.profile-name{font-family:var(--fh);font-size:1.2rem;font-weight:700}
+.profile-email{font-size:.78rem;color:var(--muted);margin-top:3px}
+.profile-stats{display:flex;justify-content:center;gap:28px;margin-top:16px}
+.stat{text-align:center}
+.stat-num{font-family:var(--fh);font-size:1.1rem;font-weight:700}
+.stat-lbl{font-size:.7rem;color:var(--muted);margin-top:2px}
+.logout-btn{margin-top:16px;padding:9px 20px;background:none;border:1px solid var(--border2);border-radius:20px;color:var(--muted);font-family:var(--fb);font-size:.82rem;cursor:pointer;transition:all .2s}
+.logout-btn:hover{border-color:var(--a1);color:var(--a1)}
 
-/* game overlays */
-.g-ov{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.88);backdrop-filter:blur(20px);display:flex;align-items:center;justify-content:center;animation:fadeIn .3s ease}
+/* STORIES */
+.stories-row{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:20px}
+.stories-row::-webkit-scrollbar{display:none}
+.story-it{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0}
+.story-ring{width:58px;height:58px;border-radius:50%;padding:2.5px;background:linear-gradient(135deg,var(--a1),var(--a2))}
+.story-ring.seen{background:var(--s3)}
+.story-ring.add{background:var(--s2);border:2px dashed var(--border2)}
+.story-in{width:100%;height:100%;border-radius:50%;border:2.5px solid var(--bg);background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;color:#fff}
+.story-nm{font-size:.64rem;color:var(--muted);text-align:center;max-width:58px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* STORY OVERLAY */
+.story-ov{position:fixed;inset:0;z-index:300;background:#000;display:flex;align-items:center;justify-content:center;animation:fadeIn .2s ease}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
-.g-box{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:28px 24px;width:min(380px,95vw);text-align:center;animation:scUp .3s cubic-bezier(.16,1,.3,1);max-height:95vh;overflow-y:auto}
-@keyframes scUp{from{opacity:0;scale:.9}to{opacity:1;scale:1}}
-.g-title{font-family:var(--fh);font-size:1.3rem;font-weight:800;margin-bottom:4px}
-.g-sub{font-size:.78rem;color:var(--muted);margin-bottom:14px}
-.ttt-board{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px auto;max-width:220px}
-.ttt-cell{aspect-ratio:1;background:var(--surface2);border:none;border-radius:10px;font-size:1.7rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s}
-.ttt-cell:hover:not(:disabled){background:var(--bg);transform:scale(.96)}
-.ttt-cell:disabled{cursor:default}
-.ttt-cell.x{color:var(--accent)}.ttt-cell.o{color:var(--accent2)}
-.ttt-st{font-size:.85rem;color:var(--muted);margin-bottom:8px;min-height:20px}
-.ttt-win{color:var(--accent3)!important;font-weight:600}
-.wordle-grid{display:grid;grid-template-rows:repeat(6,1fr);gap:5px;margin:10px auto;width:fit-content}
-.wordle-row{display:flex;gap:5px}
-.w-tile{width:44px;height:44px;border:2px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--fh);font-size:1.2rem;font-weight:800;text-transform:uppercase;transition:all .3s;color:var(--text)}
-.w-tile.correct{background:#538d4e;border-color:#538d4e;color:white}
-.w-tile.present{background:#b59f3b;border-color:#b59f3b;color:white}
-.w-tile.absent{background:var(--surface2);border-color:var(--surface2);color:var(--muted)}
-.w-tile.filled{border-color:var(--border)}
-.wordle-kbd{display:flex;flex-direction:column;gap:5px;margin-top:10px}
-.kbd-row{display:flex;gap:4px;justify-content:center}
-.kbd-key{min-width:30px;height:36px;padding:0 5px;background:var(--surface2);border:none;border-radius:6px;color:var(--text);font-family:var(--fh);font-size:.72rem;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
-.kbd-key:hover{background:var(--surface2)}
-.kbd-key.correct{background:#538d4e;color:white}
-.kbd-key.present{background:#b59f3b;color:white}
-.kbd-key.absent{background:var(--bg);color:var(--muted)}
-.kbd-key.wide{min-width:46px}
-.trivia-q{font-size:.92rem;font-weight:500;margin-bottom:14px;line-height:1.55;text-align:left}
-.trivia-opts{display:flex;flex-direction:column;gap:8px}
-.t-opt{padding:11px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;cursor:pointer;text-align:left;font-family:var(--fb);font-size:.85rem;color:var(--text);transition:all .2s}
-.t-opt:hover:not(:disabled){background:var(--surface2)}
-.t-opt.correct{background:rgba(6,214,160,.2);border-color:var(--accent3);color:var(--accent3)}
-.t-opt.wrong{background:rgba(255,77,109,.2);border-color:var(--accent);color:var(--accent)}
-.t-opt:disabled{cursor:default}
+.story-viewer{width:min(380px,100vw);height:100vh;position:relative;display:flex;align-items:center;justify-content:center}
+.story-prog{position:absolute;top:0;left:0;right:0;padding:12px 12px 0;display:flex;gap:4px;z-index:2}
+.story-prog-bar{flex:1;height:3px;background:rgba(255,255,255,.3);border-radius:3px;overflow:hidden}
+.story-prog-fill{height:100%;background:#fff;border-radius:3px;transition:width .1s linear}
+.story-content{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px 80px;position:relative}
+.story-bg{position:absolute;inset:0;z-index:0}
+.story-text-big{font-family:var(--fh);font-size:1.8rem;font-weight:800;text-align:center;z-index:1;text-shadow:0 2px 20px rgba(0,0,0,.5)}
+.story-user-row{position:absolute;top:50px;left:16px;right:16px;display:flex;align-items:center;gap:10px;z-index:2}
+.story-close{position:absolute;top:50px;right:16px;background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer;z-index:10}
+.story-add-form{display:flex;flex-direction:column;gap:10px;background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:16px}
+.story-inp{padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:.9rem;outline:none}
+.story-inp::placeholder{color:var(--muted)}
+.color-row{display:flex;gap:8px;flex-wrap:wrap}
+.color-dot{width:28px;height:28px;border-radius:50%;cursor:pointer;transition:transform .15s;border:2px solid transparent}
+.color-dot:hover,.color-dot.on{transform:scale(1.15);border-color:#fff}
+
+/* CLIPS */
+.clips-page{flex:1;height:100%;overflow-y:auto;background:var(--bg)}
+.clips-inner{padding:16px;max-width:600px}
+.clip-card{background:var(--s1);border:1px solid var(--border);border-radius:18px;overflow:hidden;margin-bottom:16px}
+.clip-thumb{width:100%;aspect-ratio:9/16;max-height:480px;background:#000;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer}
+.clip-thumb iframe{width:100%;height:100%;border:none}
+.clip-play-icon{position:absolute;width:56px;height:56px;background:rgba(0,0,0,.6);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.5rem}
+.clip-info{padding:12px 14px}
+.clip-user-row{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.clip-av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#fff;flex-shrink:0}
+.clip-username{font-size:.88rem;font-weight:600}
+.clip-time{font-size:.7rem;color:var(--muted);margin-left:auto}
+.clip-caption{font-size:.85rem;color:var(--muted);margin-bottom:10px;line-height:1.5}
+.clip-acts{display:flex;gap:12px}
+.clip-act{display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--muted);font-family:var(--fb);font-size:.8rem;cursor:pointer;padding:5px 8px;border-radius:8px;transition:all .2s}
+.clip-act:hover{background:var(--s2);color:var(--text)}
+.clip-act.liked{color:var(--a1)}
+.add-clip-form{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:20px}
+.add-clip-title{font-family:var(--fh);font-size:.9rem;font-weight:700;margin-bottom:12px}
+.clip-inp{width:100%;padding:10px 14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--fb);font-size:.85rem;outline:none;margin-bottom:8px;transition:border-color .2s}
+.clip-inp:focus{border-color:var(--a1)}
+.clip-inp::placeholder{color:var(--muted)}
+.post-btn{padding:10px 20px;background:var(--a1);border:none;border-radius:10px;color:#fff;font-family:var(--fh);font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s}
+.post-btn:hover{filter:brightness(1.1)}
+.post-btn:disabled{opacity:.5;cursor:not-allowed}
 
 /* CALL */
-.call-ov{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.9);backdrop-filter:blur(24px);display:flex;align-items:center;justify-content:center}
-.call-box{background:var(--surface);border:1px solid var(--border);border-radius:28px;padding:40px 36px;text-align:center;width:320px;animation:scUp .3s cubic-bezier(.16,1,.3,1)}
-.call-av{width:88px;height:88px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2.2rem;margin:0 auto 14px;animation:pulse 2s infinite}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(255,77,109,.35)}50%{box-shadow:0 0 0 18px rgba(255,77,109,0)}}
-.call-name{font-family:var(--fh);font-size:1.3rem;font-weight:700;margin-bottom:4px}
-.call-status{color:var(--muted);font-size:.85rem;margin-bottom:6px}
-.call-dur{color:var(--accent3);font-size:1.1rem;font-weight:600;margin-bottom:26px;font-variant-numeric:tabular-nums}
+.call-ov{position:fixed;inset:0;z-index:400;background:rgba(0,0,0,.92);backdrop-filter:blur(24px);display:flex;align-items:center;justify-content:center}
+.call-box{background:var(--s1);border:1px solid var(--border2);border-radius:28px;padding:40px 36px;text-align:center;width:300px;animation:scUp .3s cubic-bezier(.16,1,.3,1)}
+@keyframes scUp{from{opacity:0;scale:.9}to{opacity:1;scale:1}}
+.call-av-big{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#fff;margin:0 auto 12px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,68,90,.3)}50%{box-shadow:0 0 0 16px rgba(232,68,90,0)}}
+.call-name{font-family:var(--fh);font-size:1.2rem;font-weight:700;margin-bottom:4px}
+.call-st{color:var(--muted);font-size:.82rem;margin-bottom:6px}
+.call-dur{color:var(--a3);font-size:1rem;font-weight:600;margin-bottom:24px;font-variant-numeric:tabular-nums}
 .call-btns{display:flex;justify-content:center;gap:14px}
-.c-btn{width:52px;height:52px;border-radius:50%;border:none;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
-.c-btn.mute{background:var(--surface2);color:var(--text)}
-.c-btn.end{background:#ef4444;color:white}
+.c-btn{width:50px;height:50px;border-radius:50%;border:none;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.c-btn.mute{background:var(--s2);color:var(--text)}
+.c-btn.end{background:#ef4444;color:#fff}
 .c-btn.end:hover{background:#dc2626;transform:scale(1.06)}
-.c-btn.vid{background:var(--surface2);color:var(--text)}
-
-/* DISCOVER */
-.discover-page{flex:1;height:100%;overflow-y:auto;background:var(--bg)}
-.discover-inner{padding:22px;max-width:600px}
-.story-row{display:flex;gap:10px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px}
-.story-row::-webkit-scrollbar{display:none}
-.story-it{display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;flex-shrink:0}
-.story-ring{width:56px;height:56px;border-radius:50%;padding:2px;background:linear-gradient(135deg,var(--accent),var(--accent2))}
-.story-in{width:100%;height:100%;border-radius:50%;border:2px solid var(--bg);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.2rem}
-.story-nm{font-size:.65rem;color:var(--muted);text-align:center;max-width:56px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.post{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:15px;margin-bottom:14px}
-.post-hd{display:flex;align-items:center;gap:9px;margin-bottom:10px}
-.post-av{width:38px;height:38px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
-.post-author{font-weight:600;font-size:.88rem}
-.post-time{font-size:.7rem;color:var(--muted)}
-.post-body{font-size:.86rem;line-height:1.6;color:#ccc8ef;margin-bottom:10px}
-.post-media{background:var(--surface2);border-radius:12px;height:160px;display:flex;align-items:center;justify-content:center;font-size:2.8rem;margin-bottom:10px}
-.post-acts{display:flex;gap:10px}
-.post-act{display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--muted);font-family:var(--fb);font-size:.78rem;cursor:pointer;padding:5px 9px;border-radius:8px;transition:all .2s}
-.post-act:hover{background:var(--surface2);color:var(--text)}
-.post-act.liked{color:var(--accent)}
+.c-btn.vid{background:var(--s2);color:var(--text)}
 
 /* TOAST */
-.toast{position:fixed;bottom:18px;right:18px;z-index:400;background:var(--surface2);border:1px solid var(--border);border-radius:13px;padding:11px 16px;font-size:.83rem;display:flex;align-items:center;gap:9px;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:slideIn .3s cubic-bezier(.16,1,.3,1);max-width:280px}
+.toast{position:fixed;bottom:18px;right:18px;z-index:500;background:var(--s2);border:1px solid var(--border2);border-radius:13px;padding:11px 16px;font-size:.83rem;display:flex;align-items:center;gap:9px;box-shadow:0 8px 32px rgba(0,0,0,.5);animation:slideIn .3s cubic-bezier(.16,1,.3,1);max-width:280px}
 @keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
 
+/* LOADING */
+.loading-screen{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;position:relative;z-index:10}
+.spin{width:20px;height:20px;border:2px solid var(--border2);border-top-color:var(--a1);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
 /* MOBILE */
-@media(max-width:600px){.panel{width:220px}}
+@media(max-width:640px){.panel{width:220px}}
 @media(max-width:480px){.panel{display:none}}
 `;
 
-const TRACKS = [
-  {title:"WHERE SHE GOES",artist:"Bad Bunny",src:"Spotify",em:"🎵",dur:213},
-  {title:"Blinding Lights",artist:"The Weeknd",src:"Spotify",em:"🌙",dur:200},
-  {title:"HUMBLE.",artist:"Kendrick Lamar",src:"YouTube",em:"🎤",dur:177},
-  {title:"Levitating",artist:"Dua Lipa",src:"Spotify",em:"✨",dur:203},
-  {title:"Espresso",artist:"Sabrina Carpenter",src:"Spotify",em:"☕",dur:175},
-];
-
-const POSTS_DATA = [
-  {id:1,author:"Jam Community",em:"🌟",time:"just now",body:"Welcome to Jam! 🎵 Chat with friends, watch movies together, play games and more!",media:"🎵",likes:0,comments:0,liked:false},
-  {id:2,author:"Jam Community",em:"🔥",time:"just now",body:"Try the Cinema room — paste any YouTube link and watch together in sync! 🎬",media:"🎬",likes:0,comments:0,liked:false},
-];
-
-const TRIVIA_QS = [
-  {q:"What is the capital of Kenya?",opts:["Mombasa","Nairobi","Kisumu","Nakuru"],ans:1},
-  {q:"Which planet is the Red Planet?",opts:["Venus","Jupiter","Mars","Saturn"],ans:2},
-  {q:"Who painted the Mona Lisa?",opts:["Van Gogh","Picasso","Da Vinci","Monet"],ans:2},
-  {q:"What is the largest ocean?",opts:["Atlantic","Indian","Arctic","Pacific"],ans:3},
-  {q:"How many sides does a hexagon have?",opts:["5","6","7","8"],ans:1},
-];
-
-const WORDLE_WORDS = ["CRANE","SLATE","AUDIO","BRICK","CLOUD","FLAME","LIGHT","MONEY","PIANO","STORM"];
-const KBD_ROWS = [
-  ["Q","W","E","R","T","Y","U","I","O","P"],
-  ["A","S","D","F","G","H","J","K","L"],
-  ["ENTER","Z","X","C","V","B","N","M","⌫"],
-];
-const EMOJIS = "😂❤️🔥🎵🎮🌟👀😍🙌💯🎉😭🤩💪".split("");
-const COLORS = ["#e8445a","#6c5ce7","#00d4aa","#f0a500","#e17055","#74b9ff","#fd79a8","#00b894"];
-const pickColor = (name) => { let h=0; for(let c of (name||"")) h=(h*31+c.charCodeAt(0))%COLORS.length; return COLORS[h]; };
-const initials = (name) => (name||"?").split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
+// Helpers
+const COLORS = ["#e8445a","#6c5ce7","#00d4aa","#f0a500","#e17055","#74b9ff","#fd79a8","#00b894","#a29bfe","#55efc4"];
+const BG_COLORS = ["#1a0a0f","#0f0a1a","#0a1a14","#1a150a","#1a100a","#0a1220","#1a0a12","#0a1a14"];
+const pickColor = n => { let h=0; for(let c of (n||"")) h=(h*31+c.charCodeAt(0))%COLORS.length; return COLORS[h]; };
+const pickBg = n => { let h=0; for(let c of (n||"")) h=(h*31+c.charCodeAt(0))%BG_COLORS.length; return BG_COLORS[h]; };
+const initials = n => (n||"?").split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,2);
 const fmt = s => Math.floor(s/60)+":"+(String(s%60).padStart(2,"0"));
 const nowTime = () => new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
 const getChatId = (a,b) => [a,b].sort().join("_");
+const fmtDate = ts => { if(!ts) return ""; const d=new Date(ts),t=new Date(); if(d.toDateString()===t.toDateString()) return "Today"; const y=new Date(t); y.setDate(y.getDate()-1); if(d.toDateString()===y.toDateString()) return "Yesterday"; return d.toLocaleDateString(); };
+const getYTId = url => { const m=url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/); return m?m[1]:null; };
+
+const EMOJIS = "😂❤️🔥🎵🎮🌟👀😍🙌💯🎉😭🤩💪🙏😊🎶".split("");
 
 export default function Jam() {
-  // auth
   const [screen, setScreen] = useState("loading");
   const [authTab, setAuthTab] = useState("login");
   const [nameVal, setNameVal] = useState("");
@@ -328,9 +271,11 @@ export default function Jam() {
   const [authLoading, setAuthLoading] = useState(false);
   const [user, setUser] = useState(null);
 
-  // nav + chat
   const [nav, setNav] = useState("chat");
-  const [friends, setFriends] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [following, setFollowing] = useState({});
+  const [followers, setFollowers] = useState({});
+  const [mutuals, setMutuals] = useState([]);
   const [friend, setFriend] = useState(null);
   const [msgs, setMsgs] = useState([]);
   const [input, setInput] = useState("");
@@ -338,50 +283,28 @@ export default function Jam() {
   const [sending, setSending] = useState(false);
   const endRef = useRef(null);
 
+  // stories
+  const [stories, setStories] = useState([]);
+  const [storyText, setStoryText] = useState("");
+  const [storyColor, setStoryColor] = useState("#e8445a");
+  const [viewStory, setViewStory] = useState(null);
+  const [storyProg, setStoryProg] = useState(0);
+  const storyTimer = useRef(null);
+
+  // clips
+  const [clips, setClips] = useState([]);
+  const [clipUrl, setClipUrl] = useState("");
+  const [clipCaption, setClipCaption] = useState("");
+  const [activeClip, setActiveClip] = useState(null);
+  const [postingClip, setPostingClip] = useState(false);
+
   // call
   const [callOn, setCallOn] = useState(false);
   const [callSecs, setCallSecs] = useState(0);
   const [muted, setMuted] = useState(false);
   const [videoOn, setVideoOn] = useState(false);
-  const callTimer = useRef(null);
+  const callRef = useRef(null);
 
-  // music
-  const [playing, setPlaying] = useState(false);
-  const [trkIdx, setTrkIdx] = useState(0);
-  const [prog, setProg] = useState(0);
-  const [vol, setVol] = useState(80);
-  const [srcMode, setSrcMode] = useState("Spotify");
-  const [musicUrl, setMusicUrl] = useState("");
-  const musicTimer = useRef(null);
-
-  // cinema
-  const [cinemaUrl, setCinemaUrl] = useState("");
-  const [cinemaActive, setCinemaActive] = useState(false);
-  const [cinemaInput, setCinemaInput] = useState("");
-  const [cinemaMsgs, setCinemaMsgs] = useState([
-    {name:"Jam",text:"Paste a YouTube link to start watching together! 🎬",color:"#e8445a"},
-  ]);
-  const [cinemaChatInput, setCinemaChatInput] = useState("");
-
-  // games
-  const [game, setGame] = useState(null);
-  const [board, setBoard] = useState(Array(9).fill(null));
-  const [xTurn, setXTurn] = useState(true);
-  const [tttW, setTttW] = useState(null);
-  const [wTarget] = useState(()=>WORDLE_WORDS[Math.floor(Math.random()*WORDLE_WORDS.length)]);
-  const [wGuesses, setWGuesses] = useState([]);
-  const [wCur, setWCur] = useState("");
-  const [wDone, setWDone] = useState(false);
-  const [wMsg, setWMsg] = useState("");
-  const [tIdx, setTIdx] = useState(0);
-  const [tScore, setTScore] = useState(0);
-  const [tSel, setTSel] = useState(null);
-  const [tDone, setTDone] = useState(false);
-
-  // discover
-  const [posts, setPosts] = useState(POSTS_DATA);
-
-  // toast
   const [toast, setToast] = useState(null);
   const toastRef = useRef(null);
 
@@ -391,271 +314,264 @@ export default function Jam() {
     toastRef.current = setTimeout(()=>setToast(null), 3000);
   };
 
-  // ── AUTH STATE ──
+  // ── AUTH ──
   useEffect(()=>{
-    const unsub = onAuthStateChanged(auth, async (u) => {
+    const unsub = onAuthStateChanged(auth, async u => {
       if(u){
-        const snap = await new Promise(res => onValue(ref(db,`users/${u.uid}`), res, {onlyOnce:true}));
+        const snap = await get(ref(db,`users/${u.uid}`));
         const data = snap.val();
-        if(data){ setUser(data); }
-        else { setUser({uid:u.uid,email:u.email,name:u.email.split("@")[0],color:"#e8445a"}); }
+        if(data) setUser(data);
+        else setUser({uid:u.uid,email:u.email,name:u.email.split("@")[0],color:pickColor(u.email)});
         setScreen("app");
-      } else {
-        setUser(null);
-        setScreen("auth");
-      }
+      } else { setUser(null); setScreen("auth"); }
     });
     return ()=>unsub();
   },[]);
 
-  // ── LOAD ALL USERS (friends) ──
+  // ── ALL USERS ──
   useEffect(()=>{
     if(!user) return;
-    return onValue(ref(db,"users"),(snap)=>{
+    return onValue(ref(db,"users"), snap => {
       const data = snap.val();
-      if(data){
-        const list = Object.values(data).filter(u=>u.uid!==user.uid);
-        setFriends(list);
-        if(!friend && list.length>0) setFriend(list[0]);
-      }
+      if(data) setAllUsers(Object.values(data).filter(u=>u.uid!==user.uid));
     });
   },[user]);
 
-  // ── LOAD MESSAGES ──
+  // ── FOLLOWING ──
+  useEffect(()=>{
+    if(!user) return;
+    return onValue(ref(db,`following/${user.uid}`), snap => {
+      setFollowing(snap.val()||{});
+    });
+  },[user]);
+
+  // ── FOLLOWERS ──
+  useEffect(()=>{
+    if(!user) return;
+    return onValue(ref(db,`followers/${user.uid}`), snap => {
+      setFollowers(snap.val()||{});
+    });
+  },[user]);
+
+  // ── MUTUALS (can chat) ──
+  useEffect(()=>{
+    const m = allUsers.filter(u => following[u.uid] && followers[u.uid]);
+    setMutuals(m);
+    if(friend && !m.find(u=>u.uid===friend.uid)) setFriend(null);
+  },[following, followers, allUsers]);
+
+  // ── MESSAGES ──
   useEffect(()=>{
     if(!user||!friend) return;
     const chatId = getChatId(user.uid, friend.uid);
-    return onValue(ref(db,`messages/${chatId}`),(snap)=>{
+    return onValue(ref(db,`messages/${chatId}`), snap => {
       const data = snap.val();
-      if(data){
-        setMsgs(Object.values(data).sort((a,b)=>a.ts-b.ts));
-      } else {
-        setMsgs([]);
-      }
+      if(data) setMsgs(Object.values(data).sort((a,b)=>a.ts-b.ts));
+      else setMsgs([]);
     });
   },[user,friend]);
 
   useEffect(()=>{ endRef.current?.scrollIntoView({behavior:"smooth"}); },[msgs]);
 
-  // call timer
+  // ── STORIES ──
   useEffect(()=>{
-    if(callOn){ callTimer.current=setInterval(()=>setCallSecs(s=>s+1),1000); }
-    else{ clearInterval(callTimer.current); setCallSecs(0); }
-    return()=>clearInterval(callTimer.current);
+    if(!user) return;
+    return onValue(ref(db,"stories"), snap => {
+      const data = snap.val();
+      if(data){
+        const now = Date.now();
+        const list = Object.values(data)
+          .filter(s => now - s.createdAt < 86400000)
+          .sort((a,b)=>b.createdAt-a.createdAt);
+        setStories(list);
+      } else setStories([]);
+    });
+  },[user]);
+
+  // ── CLIPS ──
+  useEffect(()=>{
+    if(!user) return;
+    return onValue(ref(db,"clips"), snap => {
+      const data = snap.val();
+      if(data) setClips(Object.values(data).sort((a,b)=>b.createdAt-a.createdAt));
+      else setClips([]);
+    });
+  },[user]);
+
+  // ── STORY TIMER ──
+  useEffect(()=>{
+    if(!viewStory) return;
+    setStoryProg(0);
+    storyTimer.current = setInterval(()=>{
+      setStoryProg(p=>{
+        if(p>=100){ setViewStory(null); return 0; }
+        return p + (100/50);
+      });
+    },100);
+    return ()=>clearInterval(storyTimer.current);
+  },[viewStory]);
+
+  // ── CALL TIMER ──
+  useEffect(()=>{
+    if(callOn){ callRef.current=setInterval(()=>setCallSecs(s=>s+1),1000); }
+    else{ clearInterval(callRef.current); setCallSecs(0); }
+    return()=>clearInterval(callRef.current);
   },[callOn]);
 
-  // music timer
-  useEffect(()=>{
-    if(playing){
-      musicTimer.current=setInterval(()=>{
-        setProg(p=>{
-          if(p>=TRACKS[trkIdx].dur){setTrkIdx(i=>(i+1)%TRACKS.length);return 0;}
-          return p+1;
-        });
-      },1000);
-    } else clearInterval(musicTimer.current);
-    return()=>clearInterval(musicTimer.current);
-  },[playing,trkIdx]);
+  // ── FOLLOW / UNFOLLOW ──
+  const toggleFollow = async u => {
+    if(!user) return;
+    if(following[u.uid]){
+      await remove(ref(db,`following/${user.uid}/${u.uid}`));
+      await remove(ref(db,`followers/${u.uid}/${user.uid}`));
+      showToast("👋","Unfollowed "+u.name);
+    } else {
+      await set(ref(db,`following/${user.uid}/${u.uid}`),true);
+      await set(ref(db,`followers/${u.uid}/${user.uid}`),true);
+      showToast("✅","Following "+u.name);
+    }
+  };
 
-  // ── SIGN UP / SIGN IN ──
+  const getFollowStatus = u => {
+    const iFollow = !!following[u.uid];
+    const theyFollow = !!followers[u.uid];
+    if(iFollow && theyFollow) return "mutual";
+    if(iFollow) return "following";
+    return "follow";
+  };
+
+  // ── AUTH ──
   const doAuth = async () => {
     setAuthErr(""); setAuthLoading(true);
     try {
       if(authTab==="signup"){
-        if(!nameVal.trim()){ setAuthErr("Please enter your name"); setAuthLoading(false); return; }
-        if(!emailVal||!pwVal){ setAuthErr("Please fill all fields"); setAuthLoading(false); return; }
-        if(pwVal.length<6){ setAuthErr("Password must be at least 6 characters"); setAuthLoading(false); return; }
+        if(!nameVal.trim()){ setAuthErr("Enter your name"); setAuthLoading(false); return; }
+        if(pwVal.length<6){ setAuthErr("Password needs 6+ characters"); setAuthLoading(false); return; }
         const cred = await createUserWithEmailAndPassword(auth, emailVal, pwVal);
-        const newUser = {
-          uid: cred.user.uid,
-          name: nameVal.trim(),
-          email: emailVal,
-          color: pickColor(nameVal.trim()),
-          status: "online",
-          joinedAt: Date.now()
-        };
-        await set(ref(db,`users/${cred.user.uid}`), newUser);
+        const nu = { uid:cred.user.uid, name:nameVal.trim(), email:emailVal, color:pickColor(nameVal.trim()), joinedAt:Date.now() };
+        await set(ref(db,`users/${cred.user.uid}`), nu);
       } else {
-        if(!emailVal||!pwVal){ setAuthErr("Please fill all fields"); setAuthLoading(false); return; }
         await signInWithEmailAndPassword(auth, emailVal, pwVal);
       }
-    } catch(err){
-      if(err.code==="auth/email-already-in-use") setAuthErr("Email already registered. Sign in instead.");
-      else if(err.code==="auth/wrong-password"||err.code==="auth/invalid-credential") setAuthErr("Wrong email or password.");
-      else if(err.code==="auth/user-not-found") setAuthErr("No account found. Create one instead.");
-      else if(err.code==="auth/invalid-email") setAuthErr("Please enter a valid email.");
-      else setAuthErr("Error: "+err.message);
+    } catch(e){
+      const m = { "auth/email-already-in-use":"Email already used — sign in instead", "auth/wrong-password":"Wrong password", "auth/invalid-credential":"Wrong email or password", "auth/user-not-found":"No account found — create one", "auth/invalid-email":"Invalid email" };
+      setAuthErr(m[e.code]||e.message);
     }
     setAuthLoading(false);
   };
 
-  // ── SEND MESSAGE ──
+  // ── SEND MSG ──
   const sendMsg = async () => {
     if(!input.trim()||sending||!friend||!user) return;
-    const text = input.trim();
-    setInput(""); setShowEmoji(false); setSending(true);
+    const text=input.trim(); setInput(""); setShowEmoji(false); setSending(true);
     const chatId = getChatId(user.uid, friend.uid);
     await push(ref(db,`messages/${chatId}`),{
-      text,
-      senderId: user.uid,
-      senderName: user.name,
-      color: user.color,
-      ts: Date.now(),
-      time: nowTime()
+      text, senderId:user.uid, senderName:user.name, color:user.color,
+      ts:Date.now(), time:nowTime()
     });
     setSending(false);
   };
 
-  // ── CINEMA ──
-  const getYTId = url => {
-    const m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/);
-    return m?m[1]:null;
-  };
-  const loadCinema = () => {
-    if(!cinemaInput.trim()){ showToast("⚠️","Paste a YouTube link first"); return; }
-    const id = getYTId(cinemaInput.trim());
-    if(!id){ showToast("❌","Paste a valid YouTube link"); return; }
-    setCinemaUrl("https://www.youtube.com/embed/"+id+"?autoplay=1&rel=0");
-    setCinemaActive(true);
-    showToast("🎬","Cinema started!");
-  };
-  const sendCinemaMsg = () => {
-    if(!cinemaChatInput.trim()) return;
-    setCinemaMsgs(p=>[...p,{name:user?.name||"You",text:cinemaChatInput,color:user?.color||"#e8445a"}]);
-    setCinemaChatInput("");
+  // ── POST STORY ──
+  const postStory = async () => {
+    if(!storyText.trim()) return;
+    await push(ref(db,"stories"),{
+      text:storyText.trim(), color:storyColor, bg:pickBg(storyText),
+      authorId:user.uid, authorName:user.name, authorColor:user.color,
+      createdAt:Date.now()
+    });
+    setStoryText(""); showToast("✨","Story posted!");
   };
 
-  // ── TTT ──
-  const checkTTT = b => {
-    const lines=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-    for(const[a,c,d]of lines) if(b[a]&&b[a]===b[c]&&b[a]===b[d]) return b[a];
-    if(b.every(Boolean)) return "draw"; return null;
-  };
-  const clickTTT = i => {
-    if(board[i]||tttW||!xTurn) return;
-    const nb=[...board]; nb[i]="❌"; setBoard(nb);
-    const w=checkTTT(nb); if(w){setTttW(w);return;} setXTurn(false);
-    setTimeout(()=>{
-      const empty=nb.map((v,idx)=>v?null:idx).filter(v=>v!==null);
-      if(!empty.length) return;
-      const ai=empty[Math.floor(Math.random()*empty.length)];
-      const nb2=[...nb]; nb2[ai]="⭕"; setBoard(nb2);
-      const w2=checkTTT(nb2); if(w2) setTttW(w2); else setXTurn(true);
-    },600);
+  // ── POST CLIP ──
+  const postClip = async () => {
+    if(!clipUrl.trim()) return;
+    const ytId = getYTId(clipUrl.trim());
+    if(!ytId){ showToast("❌","Paste a valid YouTube link"); return; }
+    setPostingClip(true);
+    await push(ref(db,"clips"),{
+      ytId, caption:clipCaption.trim(), embedUrl:"https://www.youtube.com/embed/"+ytId,
+      authorId:user.uid, authorName:user.name, authorColor:user.color,
+      createdAt:Date.now(), likes:{}, comments:[]
+    });
+    setClipUrl(""); setClipCaption(""); setPostingClip(false);
+    showToast("🎬","Clip posted!");
   };
 
-  // ── WORDLE ──
-  const wColors={};
-  wGuesses.forEach(g=>[...g].forEach((c,i)=>{
-    if(c===wTarget[i]) wColors[c]="correct";
-    else if(wTarget.includes(c)&&wColors[c]!=="correct") wColors[c]="present";
-    else if(!wColors[c]) wColors[c]="absent";
-  }));
-  const wTileState=(row,col)=>{
-    if(row>=wGuesses.length) return "";
-    const c=wGuesses[row][col]; if(!c) return "";
-    if(c===wTarget[col]) return "correct";
-    if(wTarget.includes(c)) return "present";
-    return "absent";
+  // ── LIKE CLIP ──
+  const likeClip = async clip => {
+    const liked = clip.likes&&clip.likes[user.uid];
+    if(liked) await remove(ref(db,`clips/${clip.id}/likes/${user.uid}`));
+    else await set(ref(db,`clips/${clip.id}/likes/${user.uid}`),true);
   };
-  const wKey=k=>{
-    if(wDone) return;
-    if(k==="⌫"||k==="BACKSPACE"){setWCur(p=>p.slice(0,-1));return;}
-    if(k==="ENTER"){
-      if(wCur.length!==5){setWMsg("Need 5 letters");return;}
-      const ng=[...wGuesses,wCur]; setWGuesses(ng); setWCur(""); setWMsg("");
-      if(wCur===wTarget){setWDone(true);setWMsg("🎉 Brilliant!");return;}
-      if(ng.length>=6){setWDone(true);setWMsg("Answer: "+wTarget);}
-      return;
-    }
-    if(wCur.length<5&&/^[A-Z]$/.test(k)) setWCur(p=>p+k);
-  };
+
+  // fix clips with ids
   useEffect(()=>{
-    if(game!=="wordle") return;
-    const h=e=>wKey(e.key.toUpperCase());
-    window.addEventListener("keydown",h);
-    return()=>window.removeEventListener("keydown",h);
-  },[game,wCur,wGuesses,wDone]);
+    if(!user) return;
+    return onValue(ref(db,"clips"), snap => {
+      const data = snap.val();
+      if(data) setClips(Object.entries(data).map(([id,v])=>({id,...v})).sort((a,b)=>b.createdAt-a.createdAt));
+      else setClips([]);
+    });
+  },[user]);
 
-  // ── TRIVIA ──
-  const pickTrivia=i=>{
-    if(tSel!==null) return; setTSel(i);
-    if(i===TRIVIA_QS[tIdx].ans) setTScore(s=>s+1);
-    setTimeout(()=>{
-      if(tIdx+1>=TRIVIA_QS.length){setTDone(true);return;}
-      setTIdx(s=>s+1); setTSel(null);
-    },1200);
-  };
+  // story groups by user
+  const myStory = stories.find(s=>s.authorId===user?.uid);
+  const otherStories = [];
+  const seen = new Set();
+  stories.forEach(s=>{ if(s.authorId!==user?.uid&&!seen.has(s.authorId)){ seen.add(s.authorId); otherStories.push(s); } });
 
-  const trk = TRACKS[trkIdx];
-
-  // ── LOADING ──
   if(screen==="loading") return (
-    <><style>{STYLES}</style>
+    <><style>{CSS}</style>
     <div className="app"><div className="mesh"/>
-    <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:12}}>
-      <div style={{fontFamily:"var(--fh)",fontSize:"2.5rem",fontWeight:800,letterSpacing:"-2px"}}>J<span style={{color:"var(--accent)"}}>a</span>m</div>
-      <div style={{color:"var(--muted)",fontSize:".85rem"}}>Loading...</div>
+    <div className="loading-screen">
+      <div style={{fontFamily:"var(--fh)",fontSize:"2.5rem",fontWeight:800,letterSpacing:"-2px"}}>J<span style={{color:"var(--a1)"}}>a</span>m</div>
+      <div className="spin"/>
     </div>
     </div></>
   );
 
-  // ── AUTH ──
   if(screen==="auth") return (
-    <><style>{STYLES}</style>
+    <><style>{CSS}</style>
     <div className="app"><div className="mesh"/>
-    <div className="auth">
+    <div className="auth-wrap">
       <div className="auth-card">
-        <div className="logo">J<span>a</span>m</div>
-        <p className="tagline">Chat · Music · Cinema · Games — together.</p>
-        <div className="tabs">
-          <button className={"tab-btn"+(authTab==="login"?" active":"")} onClick={()=>setAuthTab("login")}>Sign In</button>
-          <button className={"tab-btn"+(authTab==="signup"?" active":"")} onClick={()=>setAuthTab("signup")}>Create Account</button>
+        <div className="auth-logo">J<em>a</em>m</div>
+        <p className="auth-sub">Chat · Clips · Stories · Music — together.</p>
+        <div className="auth-tabs">
+          <button className={"auth-tab"+(authTab==="login"?" on":"")} onClick={()=>setAuthTab("login")}>Sign In</button>
+          <button className={"auth-tab"+(authTab==="signup"?" on":"")} onClick={()=>setAuthTab("signup")}>Create Account</button>
         </div>
-        {authTab==="signup"&&(
-          <div className="form-group">
-            <label className="form-label">Full Name</label>
-            <input className="form-input" placeholder="Your name" value={nameVal} onChange={e=>setNameVal(e.target.value)}/>
-          </div>
-        )}
-        <div className="form-group">
-          <label className="form-label">Email</label>
-          <input className="form-input" type="email" placeholder="you@example.com" value={emailVal} onChange={e=>setEmailVal(e.target.value)}/>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Password</label>
-          <input className="form-input" type="password" placeholder="Min 6 characters" value={pwVal} onChange={e=>setPwVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doAuth()}/>
-        </div>
+        {authTab==="signup"&&<div className="field"><label>Full Name</label><input placeholder="Your name" value={nameVal} onChange={e=>setNameVal(e.target.value)}/></div>}
+        <div className="field"><label>Email</label><input type="email" placeholder="you@example.com" value={emailVal} onChange={e=>setEmailVal(e.target.value)}/></div>
+        <div className="field"><label>Password</label><input type="password" placeholder="Min 6 characters" value={pwVal} onChange={e=>setPwVal(e.target.value)} onKeyDown={e=>e.key==="Enter"&&doAuth()}/></div>
         <div className="auth-err">{authErr}</div>
-        <button className="btn-primary" onClick={doAuth} disabled={authLoading}>
-          {authLoading?"Please wait...":(authTab==="login"?"Sign In 🔐":"Create Account 🚀")}
-        </button>
+        <button className="btn-red" onClick={doAuth} disabled={authLoading}>{authLoading?"Please wait...":(authTab==="login"?"Sign In 🔐":"Create Account 🚀")}</button>
       </div>
     </div>
     {toast&&<div className="toast"><span>{toast.icon}</span>{toast.msg}</div>}
     </div></>
   );
 
-  // ── APP ──
   return (
-    <><style>{STYLES}</style>
+    <><style>{CSS}</style>
     <div className="app"><div className="mesh"/>
-    <div className="main">
+    <div className="layout">
 
       {/* SIDEBAR */}
       <div className="sidebar">
-        <div className="sidebar-logo">J</div>
+        <div className="sb-logo">J</div>
         {[
-          {id:"chat",ic:"💬",tip:"Chat"},
-          {id:"discover",ic:"🌍",tip:"Discover"},
-          {id:"jam",ic:"🎵",tip:"Music Room"},
-          {id:"cinema",ic:"🎬",tip:"Cinema"},
-          {id:"games",ic:"🎮",tip:"Games"},
+          {id:"chat",ic:"💬",tip:"Messages"},
+          {id:"explore",ic:"🔍",tip:"Explore & Follow"},
+          {id:"clips",ic:"🎬",tip:"Clips"},
+          {id:"stories",ic:"✨",tip:"Stories"},
+          {id:"profile",ic:"👤",tip:"Profile"},
         ].map(n=>(
-          <button key={n.id} className={"nav-btn"+(nav===n.id?" active":"")} title={n.tip} onClick={()=>setNav(n.id)}>{n.ic}</button>
+          <button key={n.id} className={"sb-btn"+(nav===n.id?" on":"")} title={n.tip} onClick={()=>setNav(n.id)}>{n.ic}</button>
         ))}
-        <div className="sidebar-spacer"/>
-        <div className="me-av" style={{background:user?.color||"#e8445a"}} title={user?.name}>
+        <div className="sb-gap"/>
+        <div className="me-av" style={{background:user?.color||"var(--a1)"}} title={user?.name} onClick={()=>setNav("profile")}>
           {initials(user?.name||"?")}
         </div>
       </div>
@@ -663,66 +579,60 @@ export default function Jam() {
       {/* ══ CHAT ══ */}
       {nav==="chat"&&<>
         <div className="panel">
-          <div className="panel-header">
-            <span className="panel-title">Chats</span>
+          <div className="panel-hd">
+            <span className="panel-title">Messages</span>
+            <span style={{fontSize:".72rem",color:"var(--muted)"}}>Mutual follows only</span>
           </div>
-          <div className="search-bar">
-            <span className="search-icon">🔍</span>
-            <input placeholder="Search users..."/>
+          <div className="srch">
+            <span className="srch-ic">🔍</span>
+            <input placeholder="Search chats..."/>
           </div>
-          <div className="friend-list">
-            {friends.length===0?(
-              <div className="no-friends">
-                👋 No other users yet!<br/>Share the link with friends so they can sign up and appear here.
+          <div className="contact-list">
+            {mutuals.length===0?(
+              <div className="no-contacts">
+                💬 No mutual follows yet!<br/>Go to <strong>Explore</strong> to find and follow people.<br/>Once they follow back you can chat!
               </div>
-            ):friends.map(f=>(
-              <div key={f.uid} className={"friend-item"+(friend?.uid===f.uid?" active":"")} onClick={()=>setFriend(f)}>
-                <div className="av-wrap">
-                  <div className="av-img" style={{background:f.color||pickColor(f.name)}}>{initials(f.name)}</div>
-                  <span className="status-dot online"/>
-                </div>
-                <div className="f-info">
-                  <div className="f-name">{f.name}</div>
-                  <div className="f-status">{f.email}</div>
+            ):mutuals.map(f=>(
+              <div key={f.uid} className={"contact-item"+(friend?.uid===f.uid?" on":"")} onClick={()=>setFriend(f)}>
+                <div className="c-av" style={{background:f.color||pickColor(f.name)}}>{initials(f.name)}</div>
+                <div className="c-info">
+                  <div className="c-name">{f.name}</div>
+                  <div className="c-sub">Mutual · Tap to chat</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="chat-main">
+        <div className="chat-area">
           {friend?(
             <>
-              <div className="chat-header">
-                <div className="av-img" style={{width:40,height:40,borderRadius:"50%",background:friend.color||pickColor(friend.name),display:"flex",alignItems:"center",justifyContent:"center",fontSize:".9rem",fontWeight:700,color:"white",flexShrink:0}}>
-                  {initials(friend.name)}
+              <div className="chat-hd">
+                <div style={{width:38,height:38,borderRadius:"50%",background:friend.color||pickColor(friend.name),display:"flex",alignItems:"center",justifyContent:"center",fontSize:".88rem",fontWeight:700,color:"#fff",flexShrink:0}}>{initials(friend.name)}</div>
+                <div>
+                  <div className="chat-hd-name">{friend.name}</div>
+                  <div className="chat-hd-sub">🔒 Private · Only you two can see this</div>
                 </div>
-                <div style={{flex:1}}>
-                  <div className="chat-header-name">{friend.name}</div>
-                  <div className="chat-header-status">● Online</div>
-                </div>
-                <div className="chat-actions">
-                  <button className="action-btn" onClick={()=>{setCallOn(true);setVideoOn(false);showToast("📞","Calling "+friend.name+"...")}}>📞</button>
-                  <button className="action-btn" onClick={()=>{setCallOn(true);setVideoOn(true);showToast("📹","Video call started")}}>📹</button>
-                  <button className="action-btn" onClick={()=>setNav("jam")}>🎵</button>
-                  <button className="action-btn" onClick={()=>setNav("cinema")}>🎬</button>
+                <div className="chat-hd-acts">
+                  <button className="hd-btn" onClick={()=>{setCallOn(true);setVideoOn(false);showToast("📞","Calling "+friend.name+"...")}}>📞</button>
+                  <button className="hd-btn" onClick={()=>{setCallOn(true);setVideoOn(true);showToast("📹","Video call started")}}>📹</button>
                 </div>
               </div>
 
-              <div className="messages">
-                {msgs.length===0&&(
-                  <div style={{textAlign:"center",color:"var(--muted)",fontSize:".8rem",marginTop:20}}>
-                    Say hello to {friend.name}! 👋
-                  </div>
-                )}
+              <div className="msgs">
+                {msgs.length===0&&<div style={{textAlign:"center",color:"var(--muted)",fontSize:".8rem",margin:"20px 0"}}>Say hi to {friend.name}! 👋<br/><span style={{fontSize:".72rem"}}>🔒 This conversation is private</span></div>}
                 {msgs.map((m,i)=>{
                   const isMe=m.senderId===user.uid;
+                  const prevMsg=msgs[i-1];
+                  const showDate=!prevMsg||fmtDate(m.ts)!==fmtDate(prevMsg.ts);
                   return(
-                    <div key={i} className={"msg-wrap"+(isMe?" mine":"")}>
-                      {!isMe&&<div className="msg-sender" style={{color:m.color}}>{m.senderName}</div>}
-                      <div className={"bubble"+(isMe?" mine":" them")}>
-                        {m.text}
-                        <div className="bubble-time">{m.time}</div>
+                    <div key={i}>
+                      {showDate&&<div className="date-div"><div className="date-chip">{fmtDate(m.ts)}</div></div>}
+                      <div className={"msg-wrap"+(isMe?" me":"")}>
+                        <div className={"bubble"+(isMe?" me":" them")}>
+                          {m.text}
+                          <div className="b-time">{m.time}{isMe&&" ✓✓"}</div>
+                        </div>
                       </div>
                     </div>
                   );
@@ -730,22 +640,11 @@ export default function Jam() {
                 <div ref={endRef}/>
               </div>
 
-              <div className="chat-input-area">
-                {showEmoji&&(
-                  <div className="emoji-tray">
-                    {EMOJIS.map(e=><button key={e} className="em" onClick={()=>setInput(p=>p+e)}>{e}</button>)}
-                  </div>
-                )}
+              <div className="input-area">
+                {showEmoji&&<div className="emoji-tray">{EMOJIS.map(e=><button key={e} className="em" onClick={()=>setInput(p=>p+e)}>{e}</button>)}</div>}
                 <div className="input-row">
                   <button className="em-toggle" onClick={()=>setShowEmoji(p=>!p)}>😊</button>
-                  <textarea
-                    className="chat-ta"
-                    placeholder={"Message "+friend.name+"..."}
-                    rows={1}
-                    value={input}
-                    onChange={e=>setInput(e.target.value)}
-                    onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();}}}
-                  />
+                  <textarea className="msg-ta" placeholder={"Message "+friend.name+"..."} rows={1} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMsg();}}}/>
                   <button className="send-btn" onClick={sendMsg} disabled={sending||!input.trim()}>➤</button>
                 </div>
               </div>
@@ -753,285 +652,282 @@ export default function Jam() {
           ):(
             <div className="empty">
               <div className="empty-icon">💬</div>
-              <div className="empty-title">No chats yet</div>
+              <div className="empty-title">{mutuals.length===0?"No mutual follows yet":"Select a chat"}</div>
               <div className="empty-sub">
-                Share your app link with friends. Once they sign up they will appear here automatically!<br/><br/>
-                <strong style={{color:"var(--accent)"}}>jam-app-smoky.vercel.app</strong>
+                {mutuals.length===0
+                  ? "Go to Explore, follow someone, and when they follow you back — you can chat privately!"
+                  : "Pick someone from the list to start chatting"}
               </div>
+              {mutuals.length===0&&<button className="btn-red" style={{width:"auto",padding:"10px 24px",marginTop:8}} onClick={()=>setNav("explore")}>Go to Explore 🔍</button>}
             </div>
           )}
         </div>
       </>}
 
-      {/* ══ DISCOVER ══ */}
-      {nav==="discover"&&(
-        <div className="discover-page">
-          <div className="discover-inner">
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:18}}>
-              <div>
-                <div className="page-title" style={{marginBottom:2}}>Discover</div>
-                <p style={{color:"var(--muted)",fontSize:".83rem"}}>What's happening</p>
-              </div>
-            </div>
-            {friends.length>0&&(
+      {/* ══ EXPLORE ══ */}
+      {nav==="explore"&&(
+        <div className="page">
+          <div className="page-inner">
+            <div className="page-title">🔍 <em>Explore</em></div>
+            <p className="page-sub">Follow people to connect and chat with them</p>
+
+            {mutuals.length>0&&(
               <>
-                <div className="sec-lbl">People</div>
-                <div className="story-row">
-                  {friends.map(f=>(
-                    <div key={f.uid} className="story-it" onClick={()=>{setFriend(f);setNav("chat")}}>
-                      <div className="story-ring">
-                        <div className="story-in" style={{background:f.color||pickColor(f.name),fontSize:"1rem",fontWeight:700,color:"white"}}>{initials(f.name)}</div>
-                      </div>
-                      <span className="story-nm">{f.name.split(" ")[0]}</span>
+                <div className="sec-lbl">💬 Mutual Follows — You can chat!</div>
+                {mutuals.map(u=>(
+                  <div key={u.uid} className="user-card">
+                    <div className="user-av" style={{background:u.color||pickColor(u.name)}} onClick={()=>{setFriend(u);setNav("chat")}}>{initials(u.name)}</div>
+                    <div className="user-info">
+                      <div className="user-name" onClick={()=>{setFriend(u);setNav("chat")}}>{u.name}</div>
+                      <div className="user-sub">✅ Mutual follow · Tap avatar to chat</div>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-            <div className="sec-lbl" style={{marginTop:8}}>Feed</div>
-            {posts.map(p=>(
-              <div key={p.id} className="post">
-                <div className="post-hd">
-                  <div className="post-av">{p.em}</div>
-                  <div><div className="post-author">{p.author}</div><div className="post-time">{p.time}</div></div>
-                </div>
-                <div className="post-body">{p.body}</div>
-                {p.media&&<div className="post-media">{p.media}</div>}
-                <div className="post-acts">
-                  <button className={"post-act"+(p.liked?" liked":"")} onClick={()=>setPosts(ps=>ps.map(x=>x.id===p.id?{...x,liked:!x.liked,likes:x.liked?x.likes-1:x.likes+1}:x))}>
-                    {p.liked?"❤️":"🤍"} {p.likes}
-                  </button>
-                  <button className="post-act">💬 {p.comments}</button>
-                  <button className="post-act" onClick={()=>showToast("🔗","Copied!")}>🔗 Share</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ══ JAM ROOM ══ */}
-      {nav==="jam"&&(
-        <div className="jam-page">
-          <div className="jam-inner">
-            <div className="page-title">🎵 <em>Jam</em> Room</div>
-            <p className="page-sub">Listen together in real time</p>
-            <div className="sec-lbl">Source</div>
-            <div className="src-row">
-              {[["🎵","Spotify","Stream music"],["▶","YouTube","Play videos"],["📻","Radio","Live stations"]].map(([ic,nm,desc])=>(
-                <div key={nm} className={"src-card"+(srcMode===nm?" on":"")} onClick={()=>{setSrcMode(nm);showToast(ic,"Connected to "+nm)}}>
-                  <div className="src-icon">{ic}</div><div className="src-name">{nm}</div><div className="src-desc">{desc}</div>
-                </div>
-              ))}
-            </div>
-            <div className="url-row">
-              <input className="url-inp" placeholder={"Paste "+srcMode+" link..."} value={musicUrl} onChange={e=>setMusicUrl(e.target.value)}/>
-              <button className="url-btn" onClick={()=>{if(musicUrl){showToast("🔗","Syncing!");setMusicUrl("");}else showToast("⚠️","Paste a link first")}}>Sync</button>
-            </div>
-            <div className="player-card">
-              <div className="sec-lbl" style={{padding:0,marginBottom:12}}>Now Playing · {srcMode}</div>
-              <div className="np-row">
-                <div className="trk-art" style={{background:playing?"linear-gradient(135deg,var(--accent),var(--accent2))":"var(--surface2)"}}>{trk.em}</div>
-                <div style={{flex:1,minWidth:0}}>
-                  <div className="trk-name">{trk.title}</div>
-                  <div className="trk-artist">{trk.artist}</div>
-                  <div className="trk-src">via {trk.src}</div>
-                </div>
-              </div>
-              <div className="prog-bar" onClick={e=>{const r=e.currentTarget.getBoundingClientRect();setProg(Math.floor(((e.clientX-r.left)/r.width)*trk.dur))}}>
-                <div className="prog-fill" style={{width:((prog/trk.dur)*100)+"%"}}/>
-              </div>
-              <div className="prog-times"><span>{fmt(prog)}</span><span>{fmt(trk.dur)}</span></div>
-              <div className="ctrl-row">
-                <button className="ctrl" onClick={()=>showToast("🔀","Shuffle on")}>🔀</button>
-                <button className="ctrl" onClick={()=>{setTrkIdx(i=>(i-1+TRACKS.length)%TRACKS.length);setProg(0)}}>⏮</button>
-                <button className="ctrl pp" onClick={()=>setPlaying(p=>!p)}>{playing?"⏸":"▶"}</button>
-                <button className="ctrl" onClick={()=>{setTrkIdx(i=>(i+1)%TRACKS.length);setProg(0)}}>⏭</button>
-                <button className="ctrl" onClick={()=>showToast("🔁","Repeat on")}>🔁</button>
-              </div>
-              <div className="vol-row">
-                <span style={{fontSize:".85rem"}}>🔈</span>
-                <input type="range" className="vol-sl" min={0} max={100} value={vol} onChange={e=>setVol(+e.target.value)}/>
-                <span style={{fontSize:".75rem",color:"var(--muted)",minWidth:"28px"}}>{vol}%</span>
-              </div>
-            </div>
-            <div className="sec-lbl">Queue</div>
-            {TRACKS.map((t,i)=>(
-              <div key={i} className={"q-item"+(i===trkIdx?" on":"")} onClick={()=>{setTrkIdx(i);setProg(0);setPlaying(true)}}>
-                <div className="q-art">{t.em}</div>
-                <div><div className="q-name" style={{color:i===trkIdx?"var(--accent)":""}}>{t.title}</div><div className="q-meta">{t.artist} · {t.src}</div></div>
-                <div className="q-dur">{fmt(t.dur)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ══ CINEMA ══ */}
-      {nav==="cinema"&&(
-        <div className="jam-page">
-          <div className="jam-inner">
-            <div className="page-title">🎬 <em>Cinema</em></div>
-            <p className="page-sub">Paste any YouTube link and watch together with friends</p>
-            <div className="url-row">
-              <input className="url-inp" placeholder="Paste YouTube link e.g. https://youtube.com/watch?v=..." value={cinemaInput} onChange={e=>setCinemaInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&loadCinema()}/>
-              <button className="url-btn" style={{background:"var(--accent2)"}} onClick={loadCinema}>▶ Watch</button>
-            </div>
-            <div className="cinema-screen">
-              {cinemaActive?(
-                <iframe src={cinemaUrl} allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowFullScreen/>
-              ):(
-                <div className="cinema-placeholder">
-                  <div className="cinema-placeholder-icon">🎬</div>
-                  <div style={{fontSize:".85rem"}}>Paste a YouTube link above to start watching</div>
-                  <div style={{fontSize:".72rem",color:"var(--muted)"}}>Share the link with friends so they can join</div>
-                </div>
-              )}
-            </div>
-            <div className="cinema-chat">
-              <div className="cinema-chat-hd">💬 Live Reactions</div>
-              <div className="cinema-msgs">
-                {cinemaMsgs.map((m,i)=>(
-                  <div key={i} className="cinema-msg">
-                    <span className="cinema-msg-name" style={{color:m.color}}>{m.name}:</span>
-                    <span className="cinema-msg-text">{m.text}</span>
+                    <button className="follow-btn mutual" onClick={()=>toggleFollow(u)}>Mutual ✓</button>
                   </div>
                 ))}
+                <div style={{height:16}}/>
+              </>
+            )}
+
+            {allUsers.filter(u=>following[u.uid]&&!followers[u.uid]).length>0&&(
+              <>
+                <div className="sec-lbl">⏳ You Follow — Waiting for them to follow back</div>
+                {allUsers.filter(u=>following[u.uid]&&!followers[u.uid]).map(u=>(
+                  <div key={u.uid} className="user-card">
+                    <div className="user-av" style={{background:u.color||pickColor(u.name)}}>{initials(u.name)}</div>
+                    <div className="user-info">
+                      <div className="user-name">{u.name}</div>
+                      <div className="user-sub">You follow them · Waiting for follow back</div>
+                    </div>
+                    <button className="follow-btn following" onClick={()=>toggleFollow(u)}>Following</button>
+                  </div>
+                ))}
+                <div style={{height:16}}/>
+              </>
+            )}
+
+            {allUsers.filter(u=>!following[u.uid]&&followers[u.uid]).length>0&&(
+              <>
+                <div className="sec-lbl">👋 Follow Back — They follow you!</div>
+                {allUsers.filter(u=>!following[u.uid]&&followers[u.uid]).map(u=>(
+                  <div key={u.uid} className="user-card">
+                    <div className="user-av" style={{background:u.color||pickColor(u.name)}}>{initials(u.name)}</div>
+                    <div className="user-info">
+                      <div className="user-name">{u.name}</div>
+                      <div className="user-sub">Follows you · Follow back to chat!</div>
+                    </div>
+                    <button className="follow-btn follow" onClick={()=>toggleFollow(u)}>Follow Back</button>
+                  </div>
+                ))}
+                <div style={{height:16}}/>
+              </>
+            )}
+
+            <div className="sec-lbl">👥 All People on Jam</div>
+            {allUsers.filter(u=>!following[u.uid]&&!followers[u.uid]).length===0&&allUsers.length===0&&(
+              <div style={{color:"var(--muted)",fontSize:".83rem",padding:"12px 0"}}>No other users yet. Share your link!</div>
+            )}
+            {allUsers.filter(u=>!following[u.uid]&&!followers[u.uid]).map(u=>(
+              <div key={u.uid} className="user-card">
+                <div className="user-av" style={{background:u.color||pickColor(u.name)}}>{initials(u.name)}</div>
+                <div className="user-info">
+                  <div className="user-name">{u.name}</div>
+                  <div className="user-sub">{u.email}</div>
+                </div>
+                <button className="follow-btn follow" onClick={()=>toggleFollow(u)}>Follow</button>
               </div>
-              <div className="cinema-inp-row">
-                <input className="cinema-inp" placeholder="React to the movie..." value={cinemaChatInput} onChange={e=>setCinemaChatInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&sendCinemaMsg()}/>
-                <button className="cinema-send" onClick={sendCinemaMsg}>Send</button>
+            ))}
+
+            <div style={{marginTop:24,padding:16,background:"var(--s1)",border:"1px solid var(--border)",borderRadius:14}}>
+              <div style={{fontFamily:"var(--fh)",fontSize:".88rem",fontWeight:700,marginBottom:6}}>📤 Invite Friends</div>
+              <div style={{fontSize:".78rem",color:"var(--muted)",marginBottom:10}}>Share this link so friends can join Jam:</div>
+              <div style={{fontSize:".82rem",color:"var(--a1)",fontWeight:600,cursor:"pointer"}} onClick={()=>{navigator.clipboard?.writeText("https://jam-app-smoky.vercel.app");showToast("📋","Link copied!")}}>
+                jam-app-smoky.vercel.app 📋
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ══ GAMES ══ */}
-      {nav==="games"&&(
-        <div className="jam-page">
-          <div className="jam-inner">
-            <div className="page-title">🎮 <em>Games</em></div>
-            <p className="page-sub">Play and have fun</p>
-            <div className="games-grid">
-              {[
-                {id:"ttt",nm:"Tic Tac Toe",ic:"⭕",pl:"vs AI",badge:"Play now",col:"#e8445a"},
-                {id:"wordle",nm:"Wordle",ic:"📝",pl:"Solo",badge:"New",col:"#6c5ce7"},
-                {id:"trivia",nm:"Trivia Night",ic:"🧠",pl:"Solo",badge:"Hot",col:"#00d4aa"},
-                {id:"chess",nm:"Chess",ic:"♟️",pl:"Coming soon",badge:"Soon",col:"#f0a500"},
-              ].map(g=>(
-                <div key={g.id} className="g-card" onClick={()=>{
-                  if(g.id==="ttt"){setBoard(Array(9).fill(null));setXTurn(true);setTttW(null);setGame("ttt")}
-                  else if(g.id==="wordle"){setWGuesses([]);setWCur("");setWDone(false);setWMsg("");setGame("wordle")}
-                  else if(g.id==="trivia"){setTIdx(0);setTScore(0);setTSel(null);setTDone(false);setGame("trivia")}
-                  else showToast("🎮",g.nm+" coming soon!")
-                }}>
-                  <div className="g-icon">{g.ic}</div>
-                  <div className="g-name">{g.nm}</div>
-                  <div className="g-pl">{g.pl}</div>
-                  <div className="g-badge" style={{background:g.col+"22",color:g.col}}>{g.badge}</div>
+      {/* ══ CLIPS ══ */}
+      {nav==="clips"&&(
+        <div className="clips-page">
+          <div className="clips-inner">
+            <div className="page-title">🎬 <em>Clips</em></div>
+            <p className="page-sub">Short videos from the community</p>
+
+            <div className="add-clip-form">
+              <div className="add-clip-title">+ Post a Clip</div>
+              <input className="clip-inp" placeholder="Paste YouTube link..." value={clipUrl} onChange={e=>setClipUrl(e.target.value)}/>
+              <input className="clip-inp" placeholder="Add a caption..." value={clipCaption} onChange={e=>setClipCaption(e.target.value)}/>
+              <button className="post-btn" onClick={postClip} disabled={postingClip||!clipUrl.trim()}>
+                {postingClip?"Posting...":"Post Clip 🎬"}
+              </button>
+            </div>
+
+            {clips.length===0&&(
+              <div className="empty" style={{height:"auto",padding:"40px 0"}}>
+                <div className="empty-icon">🎬</div>
+                <div className="empty-title">No clips yet</div>
+                <div className="empty-sub">Be the first to post a clip!</div>
+              </div>
+            )}
+
+            {clips.map(clip=>(
+              <div key={clip.id} className="clip-card">
+                <div className="clip-thumb" onClick={()=>setActiveClip(activeClip===clip.id?null:clip.id)}>
+                  {activeClip===clip.id?(
+                    <iframe src={clip.embedUrl+"?autoplay=1"} allow="autoplay;encrypted-media" allowFullScreen/>
+                  ):(
+                    <>
+                      <img src={"https://img.youtube.com/vi/"+clip.ytId+"/mqdefault.jpg"} style={{width:"100%",height:"100%",objectFit:"cover"}} alt=""/>
+                      <div className="clip-play-icon">▶</div>
+                    </>
+                  )}
+                </div>
+                <div className="clip-info">
+                  <div className="clip-user-row">
+                    <div className="clip-av" style={{background:clip.authorColor||pickColor(clip.authorName)}}>{initials(clip.authorName||"?")}</div>
+                    <div className="clip-username">{clip.authorName}</div>
+                    <div className="clip-time">{new Date(clip.createdAt).toLocaleDateString()}</div>
+                  </div>
+                  {clip.caption&&<div className="clip-caption">{clip.caption}</div>}
+                  <div className="clip-acts">
+                    <button className={"clip-act"+(clip.likes&&clip.likes[user.uid]?" liked":"")} onClick={()=>likeClip(clip)}>
+                      {clip.likes&&clip.likes[user.uid]?"❤️":"🤍"} {Object.keys(clip.likes||{}).length}
+                    </button>
+                    <button className="clip-act" onClick={()=>showToast("💬","Comments coming soon!")}>💬 Comment</button>
+                    <button className="clip-act" onClick={()=>{navigator.clipboard?.writeText("https://youtu.be/"+clip.ytId);showToast("🔗","Link copied!")}}>🔗 Share</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ══ STORIES ══ */}
+      {nav==="stories"&&(
+        <div className="page">
+          <div className="page-inner">
+            <div className="page-title">✨ <em>Stories</em></div>
+            <p className="page-sub">Disappear after 24 hours</p>
+
+            {/* Post story */}
+            <div className="story-add-form">
+              <div style={{fontFamily:"var(--fh)",fontSize:".9rem",fontWeight:700,marginBottom:8}}>+ Add Your Story</div>
+              <input className="story-inp" placeholder="What's on your mind? 💭" value={storyText} onChange={e=>setStoryText(e.target.value)} maxLength={120}/>
+              <div className="sec-lbl" style={{marginBottom:6}}>Background Color</div>
+              <div className="color-row">
+                {["#e8445a","#6c5ce7","#00d4aa","#f0a500","#e17055","#0984e3","#fd79a8","#2d3436"].map(c=>(
+                  <div key={c} className={"color-dot"+(storyColor===c?" on":"")} style={{background:c}} onClick={()=>setStoryColor(c)}/>
+                ))}
+              </div>
+              <button className="post-btn" style={{marginTop:10}} onClick={postStory} disabled={!storyText.trim()}>Post Story ✨</button>
+            </div>
+
+            {/* Stories list */}
+            <div className="sec-lbl">Active Stories</div>
+            <div className="stories-row" style={{flexWrap:"wrap",gap:12}}>
+              {myStory&&(
+                <div className="story-it" onClick={()=>setViewStory(myStory)}>
+                  <div className="story-ring"><div className="story-in" style={{background:myStory.color,fontSize:"1.1rem"}}>{myStory.text.slice(0,2)}</div></div>
+                  <span className="story-nm">Your Story</span>
+                </div>
+              )}
+              {!myStory&&(
+                <div className="story-it" onClick={()=>{}}>
+                  <div className="story-ring add"><div className="story-in" style={{background:"var(--s2)"}}>➕</div></div>
+                  <span className="story-nm">Add Story</span>
+                </div>
+              )}
+              {otherStories.map(s=>(
+                <div key={s.authorId} className="story-it" onClick={()=>setViewStory(s)}>
+                  <div className="story-ring"><div className="story-in" style={{background:s.authorColor||pickColor(s.authorName),fontSize:".85rem",fontWeight:700,color:"#fff"}}>{initials(s.authorName||"?")}</div></div>
+                  <span className="story-nm">{(s.authorName||"?").split(" ")[0]}</span>
                 </div>
               ))}
             </div>
+
+            {stories.length===0&&(
+              <div className="empty" style={{height:"auto",padding:"40px 0"}}>
+                <div className="empty-icon">✨</div>
+                <div className="empty-title">No stories yet</div>
+                <div className="empty-sub">Post your first story above!</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ══ PROFILE ══ */}
+      {nav==="profile"&&(
+        <div className="page">
+          <div className="page-inner">
+            <div className="page-title">👤 <em>Profile</em></div>
+            <div className="profile-card">
+              <div className="profile-av-big" style={{background:user?.color||"var(--a1)"}}>{initials(user?.name||"?")}</div>
+              <div className="profile-name">{user?.name}</div>
+              <div className="profile-email">{user?.email}</div>
+              <div className="profile-stats">
+                <div className="stat"><div className="stat-num">{Object.keys(following).length}</div><div className="stat-lbl">Following</div></div>
+                <div className="stat"><div className="stat-num">{Object.keys(followers).length}</div><div className="stat-lbl">Followers</div></div>
+                <div className="stat"><div className="stat-num">{mutuals.length}</div><div className="stat-lbl">Mutuals</div></div>
+                <div className="stat"><div className="stat-num">{clips.filter(c=>c.authorId===user?.uid).length}</div><div className="stat-lbl">Clips</div></div>
+              </div>
+              <button className="logout-btn" onClick={()=>{ signOut(auth); showToast("👋","Signed out"); }}>Sign Out</button>
+            </div>
+
+            <div className="sec-lbl">Your Clips</div>
+            {clips.filter(c=>c.authorId===user?.uid).length===0?(
+              <div style={{color:"var(--muted)",fontSize:".83rem",padding:"12px 0"}}>No clips yet — post one in the Clips tab!</div>
+            ):clips.filter(c=>c.authorId===user?.uid).map(clip=>(
+              <div key={clip.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",background:"var(--s1)",border:"1px solid var(--border)",borderRadius:12,marginBottom:8,cursor:"pointer"}} onClick={()=>setNav("clips")}>
+                <img src={"https://img.youtube.com/vi/"+clip.ytId+"/default.jpg"} style={{width:48,height:36,borderRadius:8,objectFit:"cover"}} alt=""/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:".85rem",fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{clip.caption||"Clip"}</div>
+                  <div style={{fontSize:".72rem",color:"var(--muted)",marginTop:2}}>{Object.keys(clip.likes||{}).length} likes</div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
     </div>
 
+    {/* STORY VIEWER */}
+    {viewStory&&(
+      <div className="story-ov" onClick={()=>setViewStory(null)}>
+        <div className="story-viewer">
+          <div className="story-prog">
+            <div className="story-prog-bar"><div className="story-prog-fill" style={{width:storyProg+"%"}}/></div>
+          </div>
+          <div className="story-content" onClick={e=>e.stopPropagation()}>
+            <div className="story-bg" style={{background:viewStory.color||"var(--a1)",opacity:.15}}/>
+            <div className="story-user-row">
+              <div style={{width:34,height:34,borderRadius:"50%",background:viewStory.authorColor||pickColor(viewStory.authorName),display:"flex",alignItems:"center",justifyContent:"center",fontSize:".78rem",fontWeight:700,color:"#fff"}}>{initials(viewStory.authorName||"?")}</div>
+              <div style={{fontSize:".85rem",fontWeight:600}}>{viewStory.authorName}</div>
+              <div style={{fontSize:".72rem",color:"rgba(255,255,255,.6)",marginLeft:"auto"}}>{new Date(viewStory.createdAt).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</div>
+            </div>
+            <div className="story-text-big" style={{color:viewStory.color||"#fff"}}>{viewStory.text}</div>
+          </div>
+          <button className="story-close" onClick={()=>setViewStory(null)}>✕</button>
+        </div>
+      </div>
+    )}
+
     {/* CALL */}
     {callOn&&(
       <div className="call-ov" onClick={e=>e.target===e.currentTarget&&setCallOn(false)}>
         <div className="call-box">
-          <div className="call-av" style={{background:friend?.color||"var(--accent)",border:"3px solid var(--accent3)"}}>
-            {initials(friend?.name||"?")}
-          </div>
+          <div className="call-av-big" style={{background:friend?.color||"var(--a1)",border:"3px solid var(--a3)"}}>{initials(friend?.name||"?")}</div>
           <div className="call-name">{friend?.name}</div>
-          <div className="call-status">{videoOn?"Video Call":"Voice Call"}</div>
+          <div className="call-st">{videoOn?"Video Call":"Voice Call"}</div>
           <div className="call-dur">{fmt(callSecs)}</div>
           <div className="call-btns">
             <button className="c-btn mute" onClick={()=>setMuted(m=>!m)}>{muted?"🔇":"🎙️"}</button>
             <button className="c-btn end" onClick={()=>{setCallOn(false);setVideoOn(false);showToast("📞","Call ended — "+fmt(callSecs))}}>📵</button>
             <button className="c-btn vid" onClick={()=>setVideoOn(v=>!v)}>{videoOn?"🚫📹":"📹"}</button>
           </div>
-        </div>
-      </div>
-    )}
-
-    {/* TTT */}
-    {game==="ttt"&&(
-      <div className="g-ov" onClick={e=>e.target===e.currentTarget&&setGame(null)}>
-        <div className="g-box">
-          <div className="g-title">⭕ Tic Tac Toe</div>
-          <div className="g-sub">You ❌ vs AI ⭕</div>
-          <div className={"ttt-st"+(tttW?" ttt-win":"")}>{tttW?(tttW==="draw"?"Draw 🤝":tttW==="❌"?"You win! 🎉":"AI wins 🤖"):(xTurn?"Your turn ❌":"AI thinking...")}</div>
-          <div className="ttt-board">
-            {board.map((cell,i)=>(
-              <button key={i} className={"ttt-cell"+(cell==="❌"?" x":cell==="⭕"?" o":"")} onClick={()=>clickTTT(i)} disabled={!!cell||!!tttW||!xTurn}>{cell}</button>
-            ))}
-          </div>
-          <button className="btn-primary" style={{marginTop:12}} onClick={()=>{setBoard(Array(9).fill(null));setXTurn(true);setTttW(null)}}>New Game 🔄</button>
-          <button style={{width:"100%",marginTop:8,padding:"9px",background:"none",border:"1px solid var(--border)",borderRadius:"10px",color:"var(--muted)",cursor:"pointer",fontFamily:"var(--fb)"}} onClick={()=>setGame(null)}>Close</button>
-        </div>
-      </div>
-    )}
-
-    {/* WORDLE */}
-    {game==="wordle"&&(
-      <div className="g-ov" onClick={e=>e.target===e.currentTarget&&setGame(null)}>
-        <div className="g-box">
-          <div className="g-title">📝 Wordle</div>
-          <div className="g-sub">Guess the 5-letter word in 6 tries</div>
-          {wMsg&&<div style={{fontSize:".82rem",color:wDone&&wGuesses.slice(-1)[0]===wTarget?"var(--accent3)":"var(--accent)",marginBottom:8,fontWeight:600}}>{wMsg}</div>}
-          <div className="wordle-grid">
-            {Array(6).fill(null).map((_,row)=>(
-              <div key={row} className="wordle-row">
-                {Array(5).fill(null).map((_,col)=>{
-                  const isActive=row===wGuesses.length;
-                  const ch=isActive?(wCur[col]||""):(wGuesses[row]?.[col]||"");
-                  const state=wTileState(row,col);
-                  return<div key={col} className={"w-tile"+(state?" "+state:ch?" filled":"")}>{ch}</div>
-                })}
-              </div>
-            ))}
-          </div>
-          <div className="wordle-kbd">
-            {KBD_ROWS.map((row,i)=>(
-              <div key={i} className="kbd-row">
-                {row.map(k=><button key={k} className={"kbd-key"+(k.length>1?" wide":"")+" "+(wColors[k]||"")} onClick={()=>wKey(k)}>{k}</button>)}
-              </div>
-            ))}
-          </div>
-          {wDone&&<button className="btn-primary" style={{marginTop:12}} onClick={()=>{setWGuesses([]);setWCur("");setWDone(false);setWMsg("")}}>Play Again 🔄</button>}
-          <button style={{width:"100%",marginTop:8,padding:"9px",background:"none",border:"1px solid var(--border)",borderRadius:"10px",color:"var(--muted)",cursor:"pointer",fontFamily:"var(--fb)"}} onClick={()=>setGame(null)}>Close</button>
-        </div>
-      </div>
-    )}
-
-    {/* TRIVIA */}
-    {game==="trivia"&&(
-      <div className="g-ov" onClick={e=>e.target===e.currentTarget&&setGame(null)}>
-        <div className="g-box">
-          <div className="g-title">🧠 Trivia Night</div>
-          {!tDone?(
-            <>
-              <div className="g-sub">Question {tIdx+1} of {TRIVIA_QS.length}</div>
-              <div style={{fontFamily:"var(--fh)",fontSize:"1rem",fontWeight:700,color:"var(--accent3)",marginBottom:8}}>Score: {tScore}</div>
-              <div className="trivia-q">{TRIVIA_QS[tIdx].q}</div>
-              <div className="trivia-opts">
-                {TRIVIA_QS[tIdx].opts.map((o,i)=>(
-                  <button key={i} className={"t-opt"+(tSel!==null?(i===TRIVIA_QS[tIdx].ans?" correct":i===tSel?" wrong":""):"")} onClick={()=>pickTrivia(i)} disabled={tSel!==null}>{o}</button>
-                ))}
-              </div>
-            </>
-          ):(
-            <>
-              <div style={{fontSize:"3rem",margin:"16px 0"}}>🏆</div>
-              <div style={{fontFamily:"var(--fh)",fontSize:"1.1rem",color:"var(--accent3)",fontWeight:700,marginBottom:8}}>Score: {tScore}/{TRIVIA_QS.length}</div>
-              <div className="g-sub">{tScore>=4?"Amazing! 🔥":tScore>=2?"Good job! 👍":"Keep going! 💪"}</div>
-              <button className="btn-primary" style={{marginTop:12}} onClick={()=>{setTIdx(0);setTScore(0);setTSel(null);setTDone(false)}}>Play Again 🔄</button>
-            </>
-          )}
-          <button style={{width:"100%",marginTop:8,padding:"9px",background:"none",border:"1px solid var(--border)",borderRadius:"10px",color:"var(--muted)",cursor:"pointer",fontFamily:"var(--fb)"}} onClick={()=>setGame(null)}>Close</button>
         </div>
       </div>
     )}
